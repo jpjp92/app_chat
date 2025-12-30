@@ -1,0 +1,5 @@
+{
+  "name": "Chat_Jp - Gemini Messenger",
+  "description": "A sleek Gemini-powered chat app ready for Vercel deployment.",
+  "requestFramePermissions": []
+}
