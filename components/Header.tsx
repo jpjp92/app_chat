@@ -4,9 +4,10 @@ import { UserProfile } from '../types';
 interface HeaderProps {
   userProfile: UserProfile;
   onUpdateProfile: (profile: UserProfile) => void;
+  onMenuClick?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
+const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile, onMenuClick }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempProfile, setTempProfile] = useState<UserProfile>(userProfile);
@@ -58,9 +59,12 @@ const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
       
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center space-x-4">
-          <div className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-pointer transition-colors hover:bg-slate-200 dark:hover:bg-slate-700">
+          <button 
+            onClick={onMenuClick}
+            className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-pointer transition-colors hover:bg-slate-200 dark:hover:bg-slate-700"
+          >
             <i className="fa-solid fa-bars-staggered"></i>
-          </div>
+          </button>
           <div className="flex items-center group cursor-pointer">
             <div className="w-10 h-10 bg-gradient-to-br from-violet-500 via-primary-500 to-indigo-600 rounded-xl flex items-center justify-center mr-3 shadow-xl shadow-primary-500/20 group-hover:rotate-12 transition-all duration-500 ring-2 ring-white/20">
               <i className="fa-solid fa-wand-magic-sparkles text-white text-lg"></i>
@@ -175,7 +179,7 @@ const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
                     </button>
                     <button 
                       onClick={() => setIsModalOpen(false)}
-                      className="px-5 py-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all"
+                      className="flex-1 py-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all"
                     >
                       Cancel
                     </button>
