@@ -12,8 +12,8 @@ Google Gemini 3 Flash API를 활용한 실시간 AI 채팅 애플리케이션입
 
 1. 이 레포지토리를 GitHub에 푸시합니다.
 2. [Vercel](https://vercel.com)에 로그인하고 **New Project**를 클릭합니다.
-3. `Chat_Jp` 레포지토리를 연결합니다.
-4. **Environment Variables** 설정 섹션에서 다음을 추가합니다:
+3. 레포지토리를 연결합니다.
+4. **Environment Variables** 설정 섹션에서 다음을 추가합니다 (중요!):
    - **Key**: `API_KEY`
    - **Value**: `여러분의_GEMINI_API_KEY`
 5. **Deploy** 버튼을 누르면 끝!
@@ -21,8 +21,8 @@ Google Gemini 3 Flash API를 활용한 실시간 AI 채팅 애플리케이션입
 ## 🛠 기술 스택
 - React 19
 - Google GenAI SDK (Gemini API)
-- Tailwind CSS
-- Font Awesome (Icons)
+- Tailwind CSS (CDN)
+- Vite (Bundler)
 
 ---
 Developed by jpjp92
