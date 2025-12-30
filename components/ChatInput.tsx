@@ -15,7 +15,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = '44px'; 
+      textarea.style.height = '48px'; 
       const newHeight = Math.min(textarea.scrollHeight, 200);
       textarea.style.height = `${newHeight}px`;
     }
@@ -32,7 +32,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
       setInput('');
       setSelectedImage(null);
       if (textareaRef.current) {
-        textareaRef.current.style.height = '44px';
+        textareaRef.current.style.height = '48px';
       }
     }
   };
@@ -60,23 +60,22 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
       };
       reader.readAsDataURL(file);
     }
-    // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-2">
+    <div className="max-w-4xl mx-auto px-4 pb-4">
       {selectedImage && (
-        <div className="flex px-2 animate-in fade-in slide-in-from-bottom-2">
+        <div className="flex px-4 py-3 mb-3 bg-white/50 dark:bg-slate-800/50 glass-effect rounded-2xl animate-in slide-in-from-bottom-4 fade-in duration-300 border border-slate-200 dark:border-slate-700">
           <div className="relative group">
             <img 
               src={selectedImage.data} 
               alt="To upload" 
-              className="h-20 w-20 object-cover rounded-lg border-2 border-primary-500 shadow-sm"
+              className="h-24 w-24 object-cover rounded-xl ring-2 ring-primary-500 shadow-lg"
             />
             <button 
               onClick={() => setSelectedImage(null)}
-              className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"
+              className="absolute -top-2 -right-2 bg-slate-900 text-white w-7 h-7 rounded-full flex items-center justify-center shadow-xl hover:bg-red-500 transition-all transform hover:scale-110"
             >
               <i className="fa-solid fa-xmark text-xs"></i>
             </button>
@@ -84,7 +83,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="relative flex items-end space-x-2">
+      <form onSubmit={handleSubmit} className="relative flex items-end space-x-3 bg-white dark:bg-slate-900 p-2 rounded-[28px] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 ring-1 ring-slate-100 dark:ring-slate-800/50 transition-all focus-within:ring-primary-500/30 focus-within:border-primary-500/50">
         <input 
           type="file" 
           ref={fileInputRef} 
@@ -92,38 +91,39 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
           accept="image/*" 
           className="hidden" 
         />
-        <div className="relative flex-1 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary-500/50 transition-all duration-200 overflow-hidden shadow-sm">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message or attach an image..."
-            rows={1}
-            disabled={disabled}
-            className="w-full bg-transparent px-4 py-[10px] outline-none resize-none text-gray-700 dark:text-gray-200 placeholder-gray-400 min-h-[44px] max-h-[200px] leading-relaxed block"
-          />
-          <div className="absolute right-3 bottom-[10px] flex items-center space-x-2">
-            <button 
-              type="button" 
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-1 transition-colors ${selectedImage ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
-              title="Attach an image"
-            >
-              <i className="fa-solid fa-paperclip"></i>
-            </button>
-          </div>
-        </div>
+        
+        <button 
+          type="button" 
+          onClick={() => fileInputRef.current?.click()}
+          className={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-all ${
+            selectedImage ? 'bg-primary-100 text-primary-600' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'
+          }`}
+          title="Attach an image"
+        >
+          <i className="fa-solid fa-plus text-lg"></i>
+        </button>
+
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Message Gemini..."
+          rows={1}
+          disabled={disabled}
+          className="flex-1 bg-transparent px-2 py-3 outline-none resize-none text-slate-700 dark:text-slate-200 placeholder-slate-400 min-h-[48px] max-h-[200px] leading-relaxed block"
+        />
+
         <button
           type="submit"
           disabled={(!input.trim() && !selectedImage) || disabled}
-          className={`flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-white transition-all duration-200 ${
+          className={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-white transition-all duration-300 ${
             (!input.trim() && !selectedImage) || disabled 
-              ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed' 
-              : 'bg-primary-600 hover:bg-primary-700 shadow-md shadow-primary-500/20 active:scale-95'
+              ? 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed' 
+              : 'bg-primary-600 hover:bg-primary-700 shadow-lg shadow-primary-500/20 active:scale-90'
           }`}
         >
-          <i className="fa-solid fa-paper-plane text-sm"></i>
+          <i className="fa-solid fa-arrow-up text-lg"></i>
         </button>
       </form>
     </div>

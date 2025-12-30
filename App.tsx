@@ -7,7 +7,7 @@ import ChatInput from './components/ChatInput';
 import Header from './components/Header';
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: 'Developer',
+  name: 'User',
   avatarUrl: 'https://picsum.photos/seed/user/32/32'
 };
 
@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const savedSessions = localStorage.getItem('gemini_sessions');
+    const savedSessions = localStorage.getItem('aura_sessions');
     if (savedSessions) {
       const parsed = JSON.parse(savedSessions);
       setSessions(parsed);
@@ -30,7 +30,7 @@ const App: React.FC = () => {
       createNewSession();
     }
 
-    const savedProfile = localStorage.getItem('gemini_user_profile');
+    const savedProfile = localStorage.getItem('aura_user_profile');
     if (savedProfile) {
       setUserProfile(JSON.parse(savedProfile));
     }
@@ -38,13 +38,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (sessions.length > 0) {
-      localStorage.setItem('gemini_sessions', JSON.stringify(sessions));
+      localStorage.setItem('aura_sessions', JSON.stringify(sessions));
     }
   }, [sessions]);
 
   const handleUpdateProfile = (newProfile: UserProfile) => {
     setUserProfile(newProfile);
-    localStorage.setItem('gemini_user_profile', JSON.stringify(newProfile));
+    localStorage.setItem('aura_user_profile', JSON.stringify(newProfile));
   };
 
   const scrollToBottom = useCallback(() => {
@@ -58,7 +58,7 @@ const App: React.FC = () => {
   const createNewSession = () => {
     const newSession: ChatSession = {
       id: Date.now().toString(),
-      title: 'New Chat',
+      title: 'Untilted Chat',
       messages: [],
       createdAt: Date.now(),
     };
@@ -131,7 +131,7 @@ const App: React.FC = () => {
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {
           const updatedMessages = s.messages.map(m => 
-            m.id === botMessageId ? { ...m, content: "Sorry, I couldn't process this request. Check your API key or image size." } : m
+            m.id === botMessageId ? { ...m, content: "Something went wrong. Please try again later." } : m
           );
           return { ...s, messages: updatedMessages };
         }
@@ -154,7 +154,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-screen overflow-hidden bg-white dark:bg-slate-950">
       <ChatSidebar 
         sessions={sessions} 
         currentSessionId={currentSessionId} 
@@ -166,16 +166,19 @@ const App: React.FC = () => {
       <div className="flex flex-col flex-1 h-full min-w-0">
         <Header userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />
         
-        <main className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6 lg:p-8 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
+        <main className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6 lg:p-10 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-800">
           {currentSession?.messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-              <div className="w-20 h-20 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-400">
-                <i className="fa-solid fa-robot text-4xl"></i>
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-8 animate-in fade-in zoom-in-95 duration-700">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary-500 rounded-full blur-3xl opacity-20 animate-pulse-slow"></div>
+                <div className="relative w-24 h-24 bg-gradient-to-br from-primary-100 to-indigo-100 dark:from-primary-900/20 dark:to-indigo-900/20 rounded-[32px] flex items-center justify-center text-primary-600 dark:text-primary-400 border border-white dark:border-slate-800 shadow-xl ring-1 ring-primary-200/50">
+                  <i className="fa-solid fa-wand-magic-sparkles text-4xl"></i>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold">Hello, {userProfile.name}</h2>
-                <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mt-2">
-                  I'm Gemini Messenger. You can send me text or even images for analysis!
+              <div className="max-w-md mx-auto">
+                <h2 className="text-4xl font-black tracking-tighter mb-3">Welcome to Gemini.</h2>
+                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  How can I help you today? Send me a message or share an image to start our conversation.
                 </p>
               </div>
             </div>
@@ -185,18 +188,18 @@ const App: React.FC = () => {
             ))
           )}
           {isTyping && (
-            <div className="flex items-center space-x-2 text-sm text-gray-500 animate-pulse">
-              <i className="fa-solid fa-circle-notch fa-spin"></i>
+            <div className="flex items-center space-x-3 text-[11px] font-black uppercase tracking-[0.2em] text-primary-500/70 ml-2 animate-in fade-in duration-300">
+              <i className="fa-solid fa-sparkles animate-spin-slow"></i>
               <span>Gemini is thinking...</span>
             </div>
           )}
           <div ref={messagesEndRef} />
         </main>
 
-        <footer className="p-4 md:p-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+        <footer className="p-4 md:p-8 bg-transparent">
           <ChatInput onSend={handleSendMessage} disabled={isTyping} />
-          <p className="text-[10px] text-center text-gray-400 mt-2">
-            AI can make mistakes. Consider checking important information.
+          <p className="text-[9px] font-bold text-center text-slate-400 uppercase tracking-[0.3em] mt-4 opacity-50">
+            Powered by Gemini Intelligence
           </p>
         </footer>
       </div>
