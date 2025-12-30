@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ChatSession, Language } from '../types';
 
 interface ChatSidebarProps {
@@ -24,6 +24,29 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onNewSession,
   onDeleteSession
 }) => {
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const languages: { code: Language; name: string; label: string }[] = [
+    { code: 'ko', name: '한국어', label: 'Korean' },
+    { code: 'en', name: 'English', label: 'US' },
+    { code: 'es', name: 'Español', label: 'Spanish' },
+    { code: 'fr', name: 'Français', label: 'French' },
+  ];
+
+  const currentLang = languages.find(l => l.code === language) || languages[0];
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsLangMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <>
       {/* Mobile Backdrop */}
@@ -88,24 +111,43 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           ))}
         </div>
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 space-y-4">
-          {/* Language Selector */}
-          <div className="px-2">
-            <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block">Language</label>
-            <div className="relative">
-              <select 
-                value={language}
-                onChange={(e) => onLanguageChange(e.target.value as Language)}
-                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-9 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 appearance-none outline-none focus:ring-2 focus:ring-primary-500/20 cursor-pointer transition-all"
-              >
-                <option value="ko">한국어 (Korean)</option>
-                <option value="en">English (US)</option>
-                <option value="es">Español (Spanish)</option>
-                <option value="fr">Français (French)</option>
-              </select>
-              <i className="fa-solid fa-globe absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
-              <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[8px] pointer-events-none"></i>
-            </div>
+        {/* Custom Language Selector */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
+          <div className="relative" ref={dropdownRef}>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-1 block">Language</label>
+            
+            {/* Language Menu Popover */}
+            {isLangMenuOpen && (
+              <div className="absolute bottom-full left-0 w-full mb-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 z-[60]">
+                {languages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => {
+                      onLanguageChange(lang.code);
+                      setIsLangMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center px-4 py-3.5 text-sm transition-colors ${
+                      language === lang.code 
+                        ? 'bg-primary-500 text-white font-bold' 
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <span className="flex-1 text-left">{lang.name} ({lang.label})</span>
+                    {language === lang.code && <i className="fa-solid fa-check text-xs"></i>}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Trigger Button */}
+            <button 
+              onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+              className="w-full flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm hover:shadow-md transition-all active:scale-[0.98] ring-offset-2 focus:ring-2 focus:ring-primary-500/20"
+            >
+              <i className="fa-solid fa-globe mr-3 text-slate-400"></i>
+              <span className="flex-1 text-left">{currentLang.name} ({currentLang.label})</span>
+              <i className={`fa-solid fa-chevron-up transition-transform duration-300 text-[10px] text-slate-400 ${isLangMenuOpen ? 'rotate-180' : ''}`}></i>
+            </button>
           </div>
         </div>
       </aside>

@@ -14,19 +14,19 @@ const DEFAULT_PROFILE: UserProfile = {
 const WELCOME_TEXTS: Record<Language, { title: React.ReactNode, desc: string }> = {
   ko: {
     title: <>반가워요!<br/>오늘은 어떤 이야기를 나눌까요?</>,
-    desc: "궁금한 것이나 도움이 필요하시면 언제든 말씀해 주세요. 사진을 보여주셔도 좋습니다!"
+    desc: "궁금한 것을 물어보거나 사진을 공유해 보세요."
   },
   en: {
     title: <>Hello there!<br/>What's on your mind?</>,
-    desc: "Feel free to ask questions or share an image to get started. I'm here to help!"
+    desc: "Ask a question or share a photo to get started."
   },
   es: {
     title: <>¡Hola!<br/>¿De qué hablamos hoy?</>,
-    desc: "No dudes en hacer preguntas o compartir una imagen para empezar. ¡Estoy aquí para ayudarte!"
+    desc: "Haz una pregunta o comparte una foto para comenzar."
   },
   fr: {
     title: <>Bonjour !<br/>De quoi parlons-nous ?</>,
-    desc: "N'hésitez pas à poser des questions ou à partager une image pour commencer. Je suis là pour vous !"
+    desc: "Posez une question ou partagez une photo pour commencer."
   }
 };
 
