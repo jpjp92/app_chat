@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../types';
 
 interface HeaderProps {
@@ -10,6 +10,7 @@ const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempProfile, setTempProfile] = useState<UserProfile>(userProfile);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (document.documentElement.classList.contains('dark')) {
@@ -29,6 +30,29 @@ const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
   const handleSave = () => {
     onUpdateProfile(tempProfile);
     setIsModalOpen(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Image size should be less than 2MB");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setTempProfile({
+          ...tempProfile,
+          avatarUrl: reader.result as string
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -68,7 +92,7 @@ const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
               (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(userProfile.name);
             }}
           />
-          <div className="hidden sm:block">
+          <div className="hidden sm:block text-left">
             <p className="text-sm font-semibold leading-none">{userProfile.name}</p>
             <p className="text-[10px] text-gray-400">Settings</p>
           </div>
@@ -91,16 +115,44 @@ const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
             </div>
             
             <div className="p-6 space-y-6">
+              {/* Hidden File Input */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="image/*" 
+                className="hidden" 
+              />
+
               <div className="flex flex-col items-center space-y-4">
-                <img 
-                  src={tempProfile.avatarUrl} 
-                  alt="Preview" 
-                  className="w-20 h-20 rounded-full border-4 border-primary-500/20 shadow-lg object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(tempProfile.name);
-                  }}
-                />
-                <p className="text-xs text-gray-400">Avatar Preview</p>
+                <div 
+                  onClick={triggerFileInput}
+                  className="relative group cursor-pointer"
+                >
+                  <img 
+                    src={tempProfile.avatarUrl} 
+                    alt="Preview" 
+                    className="w-24 h-24 rounded-full border-4 border-primary-500/20 shadow-lg object-cover transition-filter group-hover:brightness-75"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(tempProfile.name);
+                    }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i className="fa-solid fa-camera text-white text-xl"></i>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 bg-primary-600 w-8 h-8 rounded-full flex items-center justify-center text-white border-2 border-white dark:border-gray-900 shadow-sm">
+                    <i className="fa-solid fa-pen text-[10px]"></i>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <button 
+                    onClick={triggerFileInput}
+                    className="text-primary-600 dark:text-primary-400 text-sm font-semibold hover:underline"
+                  >
+                    Change Photo
+                  </button>
+                  <p className="text-[10px] text-gray-400 mt-1">Recommended: Square image, max 2MB</p>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -113,18 +165,6 @@ const Header: React.FC<HeaderProps> = ({ userProfile, onUpdateProfile }) => {
                     className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
                     placeholder="Enter your name"
                   />
-                </div>
-                
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Avatar Image URL</label>
-                  <input 
-                    type="text" 
-                    value={tempProfile.avatarUrl}
-                    onChange={(e) => setTempProfile({ ...tempProfile, avatarUrl: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary-500/50 transition-all text-xs"
-                    placeholder="https://example.com/image.png"
-                  />
-                  <p className="text-[10px] text-gray-400">Pro tip: Use a direct link to an image file.</p>
                 </div>
               </div>
             </div>
