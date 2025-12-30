@@ -1,13 +1,12 @@
-
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { Role, Message } from "../types";
+import { GoogleGenAI, GenerateContentResponse, Part } from "@google/genai";
+import { Role, Message, MessageImage } from "../types";
 
 export const streamChatResponse = async (
   prompt: string, 
   history: Message[], 
-  onChunk: (chunk: string) => void
+  onChunk: (chunk: string) => void,
+  attachedImage?: MessageImage
 ) => {
-  // Use the pre-configured environment variable API_KEY
   const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
@@ -15,30 +14,48 @@ export const streamChatResponse = async (
   }
 
   try {
-    // Correct initialization using named parameters
     const ai = new GoogleGenAI({ apiKey });
     
-    // Format history as an array of Content objects
-    const formattedHistory = history.map(msg => ({
-      role: msg.role === Role.USER ? 'user' : 'model',
-      parts: [{ text: msg.content }]
-    }));
+    // Format history
+    const formattedHistory = history.map(msg => {
+      const parts: Part[] = [{ text: msg.content }];
+      if (msg.image) {
+        parts.push({
+          inlineData: {
+            data: msg.image.data.split(',')[1], // Remove "data:image/png;base64," prefix
+            mimeType: msg.image.mimeType
+          }
+        });
+      }
+      return {
+        role: msg.role === Role.USER ? 'user' : 'model',
+        parts
+      };
+    });
 
-    // Start a chat session. Note that 'history' is a top-level parameter of ChatSessionParameters.
     const chat = ai.chats.create({
       model: 'gemini-3-flash-preview',
       history: formattedHistory,
       config: {
-        systemInstruction: 'You are a helpful, intelligent, and creative AI assistant named Gemini Messenger. You provide clear, concise, and accurate information. When writing code, use markdown blocks.',
+        systemInstruction: 'You are a helpful AI assistant. You can see and analyze images provided by the user. If an image is provided, describe it or answer questions about it. Use markdown for formatting.',
       },
     });
 
-    // Send message using the recommended message parameter
-    const result = await chat.sendMessageStream({ message: prompt });
+    // Construct the current message parts
+    const currentParts: (string | Part)[] = [{ text: prompt }];
+    if (attachedImage) {
+      currentParts.push({
+        inlineData: {
+          data: attachedImage.data.split(',')[1],
+          mimeType: attachedImage.mimeType
+        }
+      });
+    }
+
+    const result = await chat.sendMessageStream({ message: currentParts });
     
     let fullText = "";
     for await (const chunk of result) {
-      // Access the .text property directly (not a method call)
       const text = (chunk as GenerateContentResponse).text;
       if (text) {
         fullText += text;
@@ -48,9 +65,6 @@ export const streamChatResponse = async (
     return fullText;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    if (error?.message?.includes("Requested entity was not found")) {
-      throw new Error("API Key가 유효하지 않거나 모델을 찾을 수 없습니다.");
-    }
     throw error;
   }
 };

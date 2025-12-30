@@ -4,11 +4,17 @@ export enum Role {
   SYSTEM = 'system'
 }
 
+export interface MessageImage {
+  data: string;
+  mimeType: string;
+}
+
 export interface Message {
   id: string;
   role: Role;
   content: string;
   timestamp: number;
+  image?: MessageImage;
 }
 
 export interface ChatSession {

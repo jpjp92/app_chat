@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Role, Message, ChatSession, UserProfile } from './types';
+import { Role, Message, ChatSession, UserProfile, MessageImage } from './types';
 import { streamChatResponse } from './services/geminiService';
 import ChatSidebar from './components/ChatSidebar';
 import ChatMessage from './components/ChatMessage';
@@ -18,9 +18,7 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize data from local storage
   useEffect(() => {
-    // Sessions
     const savedSessions = localStorage.getItem('gemini_sessions');
     if (savedSessions) {
       const parsed = JSON.parse(savedSessions);
@@ -32,21 +30,18 @@ const App: React.FC = () => {
       createNewSession();
     }
 
-    // Profile
     const savedProfile = localStorage.getItem('gemini_user_profile');
     if (savedProfile) {
       setUserProfile(JSON.parse(savedProfile));
     }
   }, []);
 
-  // Save sessions to local storage
   useEffect(() => {
     if (sessions.length > 0) {
       localStorage.setItem('gemini_sessions', JSON.stringify(sessions));
     }
   }, [sessions]);
 
-  // Save profile to local storage
   const handleUpdateProfile = (newProfile: UserProfile) => {
     setUserProfile(newProfile);
     localStorage.setItem('gemini_user_profile', JSON.stringify(newProfile));
@@ -73,19 +68,22 @@ const App: React.FC = () => {
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
 
-  const handleSendMessage = async (content: string) => {
-    if (!currentSessionId || !content.trim()) return;
+  const handleSendMessage = async (content: string, image?: MessageImage) => {
+    if (!currentSessionId || (!content.trim() && !image)) return;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: Role.USER,
-      content,
+      content: content || (image ? "[Image]" : ""),
       timestamp: Date.now(),
+      image
     };
 
     const updatedSessionsWithUser = sessions.map(s => {
       if (s.id === currentSessionId) {
-        const newTitle = s.messages.length === 0 ? content.slice(0, 30) + (content.length > 30 ? '...' : '') : s.title;
+        const newTitle = s.messages.length === 0 
+          ? (content.slice(0, 30) || "Image Analysis") + (content.length > 30 ? '...' : '') 
+          : s.title;
         return { ...s, title: newTitle, messages: [...s.messages, userMessage] };
       }
       return s;
@@ -112,7 +110,7 @@ const App: React.FC = () => {
     try {
       let accumulatedText = "";
       await streamChatResponse(
-        content,
+        content || "Analyze this image.",
         currentSession?.messages || [],
         (chunk) => {
           accumulatedText += chunk;
@@ -125,14 +123,15 @@ const App: React.FC = () => {
             }
             return s;
           }));
-        }
+        },
+        image
       );
     } catch (error) {
       console.error(error);
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {
           const updatedMessages = s.messages.map(m => 
-            m.id === botMessageId ? { ...m, content: "Sorry, I encountered an error. Please try again." } : m
+            m.id === botMessageId ? { ...m, content: "Sorry, I couldn't process this request. Check your API key or image size." } : m
           );
           return { ...s, messages: updatedMessages };
         }
@@ -176,7 +175,7 @@ const App: React.FC = () => {
               <div>
                 <h2 className="text-2xl font-bold">Hello, {userProfile.name}</h2>
                 <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mt-2">
-                  I'm Gemini Messenger. Ask me anything, or start a new conversation.
+                  I'm Gemini Messenger. You can send me text or even images for analysis!
                 </p>
               </div>
             </div>

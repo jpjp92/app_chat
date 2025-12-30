@@ -34,9 +34,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
               src={userProfile.avatarUrl} 
               className="w-8 h-8 rounded-full object-cover shadow-sm border border-gray-200 dark:border-gray-700"
               alt="User"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(userProfile.name);
-              }}
             />
           ) : (
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm ${
@@ -49,22 +46,30 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
           )}
         </div>
         
-        <div className={`relative px-4 py-2.5 rounded-2xl shadow-sm ${
-          isUser 
-            ? 'bg-primary-600 text-white rounded-tr-none' 
-            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-none border border-gray-100 dark:border-gray-700'
-        }`}>
-          <div className="text-[15px] whitespace-pre-wrap">
-            {message.content ? renderContent(message.content) : (
-              <div className="flex space-x-1.5 py-2">
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              </div>
-            )}
-          </div>
-          <div className={`text-[10px] mt-1.5 font-medium opacity-70 ${isUser ? 'text-right' : 'text-left'}`}>
-            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+          {message.image && (
+            <div className={`mb-2 max-w-sm rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700 ${isUser ? 'mr-0' : 'ml-0'}`}>
+              <img src={message.image.data} alt="Sent" className="max-w-full h-auto block" />
+            </div>
+          )}
+          
+          <div className={`relative px-4 py-2.5 rounded-2xl shadow-sm ${
+            isUser 
+              ? 'bg-primary-600 text-white rounded-tr-none' 
+              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-none border border-gray-100 dark:border-gray-700'
+          }`}>
+            <div className="text-[15px] whitespace-pre-wrap">
+              {message.content ? renderContent(message.content) : (
+                <div className="flex space-x-1.5 py-2">
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                </div>
+              )}
+            </div>
+            <div className={`text-[10px] mt-1.5 font-medium opacity-70 ${isUser ? 'text-right' : 'text-left'}`}>
+              {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
           </div>
         </div>
       </div>
