@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Role, Message, ChatSession, UserProfile, MessageImage } from './types';
+import { Role, Message, ChatSession, UserProfile, MessageImage, Language } from './types';
 import { streamChatResponse } from './services/geminiService';
 import ChatSidebar from './components/ChatSidebar';
 import ChatMessage from './components/ChatMessage';
@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const [language, setLanguage] = useState<Language>('ko');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,6 +35,11 @@ const App: React.FC = () => {
     if (savedProfile) {
       setUserProfile(JSON.parse(savedProfile));
     }
+
+    const savedLang = localStorage.getItem('aura_lang');
+    if (savedLang) {
+      setLanguage(savedLang as Language);
+    }
   }, []);
 
   useEffect(() => {
@@ -41,6 +47,11 @@ const App: React.FC = () => {
       localStorage.setItem('aura_sessions', JSON.stringify(sessions));
     }
   }, [sessions]);
+
+  const handleLanguageChange = (newLang: Language) => {
+    setLanguage(newLang);
+    localStorage.setItem('aura_lang', newLang);
+  };
 
   const handleUpdateProfile = (newProfile: UserProfile) => {
     setUserProfile(newProfile);
@@ -124,6 +135,7 @@ const App: React.FC = () => {
             return s;
           }));
         },
+        language,
         image
       );
     } catch (error) {
@@ -158,6 +170,8 @@ const App: React.FC = () => {
       <ChatSidebar 
         sessions={sessions} 
         currentSessionId={currentSessionId} 
+        language={language}
+        onLanguageChange={handleLanguageChange}
         onSelectSession={setCurrentSessionId}
         onNewSession={createNewSession}
         onDeleteSession={deleteSession}

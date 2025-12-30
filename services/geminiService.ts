@@ -1,10 +1,11 @@
 import { GoogleGenAI, GenerateContentResponse, Part } from "@google/genai";
-import { Role, Message, MessageImage } from "../types";
+import { Role, Message, MessageImage, Language } from "../types";
 
 export const streamChatResponse = async (
   prompt: string, 
   history: Message[], 
   onChunk: (chunk: string) => void,
+  language: Language = 'ko',
   attachedImage?: MessageImage
 ) => {
   const apiKey = process.env.API_KEY;
@@ -22,7 +23,7 @@ export const streamChatResponse = async (
       if (msg.image) {
         parts.push({
           inlineData: {
-            data: msg.image.data.split(',')[1], // Remove "data:image/png;base64," prefix
+            data: msg.image.data.split(',')[1],
             mimeType: msg.image.mimeType
           }
         });
@@ -33,15 +34,21 @@ export const streamChatResponse = async (
       };
     });
 
+    const langNames = {
+      ko: 'Korean',
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French'
+    };
+
     const chat = ai.chats.create({
       model: 'gemini-3-flash-preview',
       history: formattedHistory,
       config: {
-        systemInstruction: 'You are a helpful AI assistant. You can see and analyze images provided by the user. If an image is provided, describe it or answer questions about it. Use markdown for formatting.',
+        systemInstruction: `You are a helpful AI assistant. You MUST respond in ${langNames[language]}. You can see and analyze images. Use markdown for formatting.`,
       },
     });
 
-    // Construct the current message parts
     const currentParts: (string | Part)[] = [{ text: prompt }];
     if (attachedImage) {
       currentParts.push({

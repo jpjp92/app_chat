@@ -4,6 +4,8 @@ export enum Role {
   SYSTEM = 'system'
 }
 
+export type Language = 'ko' | 'en' | 'es' | 'fr';
+
 export interface MessageImage {
   data: string;
   mimeType: string;
