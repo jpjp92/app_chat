@@ -1,16 +1,15 @@
-
 import React from 'react';
-import { Role, Message } from '../types';
+import { Role, Message, UserProfile } from '../types';
 
 interface ChatMessageProps {
   message: Message;
+  userProfile?: UserProfile;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
   const isUser = message.role === Role.USER;
 
   const renderContent = (content: string) => {
-    // 줄바꿈 및 기본 마크다운 스타일 처리
     return content.split('\n').map((line, i) => {
       if (line.trim().startsWith('```')) return null;
       
@@ -30,13 +29,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
       <div className={`flex max-w-[85%] md:max-w-[75%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start`}>
         <div className={`flex-shrink-0 mt-1 ${isUser ? 'ml-3' : 'mr-3'}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm ${
-            isUser 
-              ? 'bg-primary-600 text-white' 
-              : 'bg-indigo-600 text-white'
-          }`}>
-            {isUser ? <i className="fa-solid fa-user"></i> : <i className="fa-solid fa-robot"></i>}
-          </div>
+          {isUser && userProfile?.avatarUrl ? (
+            <img 
+              src={userProfile.avatarUrl} 
+              className="w-8 h-8 rounded-full object-cover shadow-sm border border-gray-200 dark:border-gray-700"
+              alt="User"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(userProfile.name);
+              }}
+            />
+          ) : (
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm ${
+              isUser 
+                ? 'bg-primary-600 text-white' 
+                : 'bg-indigo-600 text-white'
+            }`}>
+              {isUser ? <i className="fa-solid fa-user"></i> : <i className="fa-solid fa-robot"></i>}
+            </div>
+          )}
         </div>
         
         <div className={`relative px-4 py-2.5 rounded-2xl shadow-sm ${

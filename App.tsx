@@ -1,29 +1,41 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Role, Message, ChatSession } from './types';
+import { Role, Message, ChatSession, UserProfile } from './types';
 import { streamChatResponse } from './services/geminiService';
 import ChatSidebar from './components/ChatSidebar';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
 import Header from './components/Header';
 
+const DEFAULT_PROFILE: UserProfile = {
+  name: 'Developer',
+  avatarUrl: 'https://picsum.photos/seed/user/32/32'
+};
+
 const App: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize with a default session if none exist
+  // Initialize data from local storage
   useEffect(() => {
-    const saved = localStorage.getItem('gemini_sessions');
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    // Sessions
+    const savedSessions = localStorage.getItem('gemini_sessions');
+    if (savedSessions) {
+      const parsed = JSON.parse(savedSessions);
       setSessions(parsed);
       if (parsed.length > 0) {
         setCurrentSessionId(parsed[0].id);
       }
     } else {
       createNewSession();
+    }
+
+    // Profile
+    const savedProfile = localStorage.getItem('gemini_user_profile');
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
     }
   }, []);
 
@@ -33,6 +45,12 @@ const App: React.FC = () => {
       localStorage.setItem('gemini_sessions', JSON.stringify(sessions));
     }
   }, [sessions]);
+
+  // Save profile to local storage
+  const handleUpdateProfile = (newProfile: UserProfile) => {
+    setUserProfile(newProfile);
+    localStorage.setItem('gemini_user_profile', JSON.stringify(newProfile));
+  };
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,10 +83,8 @@ const App: React.FC = () => {
       timestamp: Date.now(),
     };
 
-    // Add user message to state
     const updatedSessionsWithUser = sessions.map(s => {
       if (s.id === currentSessionId) {
-        // Update title if it's the first message
         const newTitle = s.messages.length === 0 ? content.slice(0, 30) + (content.length > 30 ? '...' : '') : s.title;
         return { ...s, title: newTitle, messages: [...s.messages, userMessage] };
       }
@@ -86,7 +102,6 @@ const App: React.FC = () => {
       timestamp: Date.now(),
     };
 
-    // Prepare placeholder for bot response
     setSessions(prev => prev.map(s => {
       if (s.id === currentSessionId) {
         return { ...s, messages: [...s.messages, botMessage] };
@@ -150,7 +165,7 @@ const App: React.FC = () => {
       />
       
       <div className="flex flex-col flex-1 h-full min-w-0">
-        <Header />
+        <Header userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />
         
         <main className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6 lg:p-8 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
           {currentSession?.messages.length === 0 ? (
@@ -159,15 +174,15 @@ const App: React.FC = () => {
                 <i className="fa-solid fa-robot text-4xl"></i>
               </div>
               <div>
-                <h2 className="text-2xl font-bold">Hello, I'm Gemini Messenger</h2>
+                <h2 className="text-2xl font-bold">Hello, {userProfile.name}</h2>
                 <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mt-2">
-                  I'm powered by Google's latest Gemini model. Ask me anything, or start a new conversation.
+                  I'm Gemini Messenger. Ask me anything, or start a new conversation.
                 </p>
               </div>
             </div>
           ) : (
             currentSession?.messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage key={message.id} message={message} userProfile={userProfile} />
             ))
           )}
           {isTyping && (

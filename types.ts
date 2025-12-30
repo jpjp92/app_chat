@@ -1,4 +1,3 @@
-
 export enum Role {
   USER = 'user',
   MODEL = 'model',
@@ -17,4 +16,9 @@ export interface ChatSession {
   title: string;
   messages: Message[];
   createdAt: number;
+}
+
+export interface UserProfile {
+  name: string;
+  avatarUrl: string;
 }
