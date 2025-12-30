@@ -8,7 +8,7 @@ import Header from './components/Header';
 
 const DEFAULT_PROFILE: UserProfile = {
   name: 'User',
-  avatarUrl: 'https://picsum.photos/seed/user/32/32'
+  avatarUrl: 'https://i.ibb.co/VWwD4FS2/Gemini-Generated-Image-t452edt452edt452.jpg'
 };
 
 const App: React.FC = () => {
