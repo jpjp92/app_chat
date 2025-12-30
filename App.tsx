@@ -214,12 +214,12 @@ const App: React.FC = () => {
         
         <main className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6 lg:p-10 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-800">
           {currentSession?.messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-in fade-in zoom-in-95 duration-1000">
-              <div className="max-w-xl mx-auto">
-                <h2 className="text-3xl md:text-4xl font-black tracking-tighter mb-4 bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent leading-tight px-4">
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in zoom-in-95 duration-1000">
+              <div className="max-w-xl mx-auto px-4">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter mb-4 bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent leading-[1.15] px-2">
                   {WELCOME_TEXTS[language].title}
                 </h2>
-                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed text-[13px] md:text-sm max-w-md mx-auto px-6 opacity-70">
+                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed text-[13px] md:text-sm max-w-[280px] sm:max-w-md mx-auto opacity-70">
                   {WELCOME_TEXTS[language].desc}
                 </p>
               </div>
@@ -238,9 +238,9 @@ const App: React.FC = () => {
           <div ref={messagesEndRef} />
         </main>
 
-        <footer className="p-4 md:p-8 bg-transparent">
+        <footer className="p-3 sm:p-4 md:p-8 bg-transparent">
           <ChatInput onSend={handleSendMessage} disabled={isTyping} />
-          <p className="text-[9px] font-bold text-center text-slate-400 uppercase tracking-[0.3em] mt-4 opacity-50">
+          <p className="text-[8px] sm:text-[9px] font-bold text-center text-slate-400 uppercase tracking-[0.3em] mt-3 sm:mt-4 opacity-40">
             Powered by Gemini Intelligence
           </p>
         </footer>
