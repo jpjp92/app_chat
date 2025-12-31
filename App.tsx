@@ -34,6 +34,7 @@ const App: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState<string>("");
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [language, setLanguage] = useState<Language>('ko');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -100,6 +101,27 @@ const App: React.FC = () => {
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
 
+  // URL 감지 및 웹 콘텐츠 추출 함수
+  const fetchWebContent = async (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const match = text.match(urlRegex);
+    if (!match) return undefined;
+
+    const url = match[0];
+    setLoadingStatus("Reading web page...");
+    try {
+      const response = await fetch(`https://r.jina.ai/${url}`);
+      if (!response.ok) return undefined;
+      const content = await response.text();
+      return content.slice(0, 15000); // 텍스트가 너무 길면 잘라냄 (Token 관리)
+    } catch (e) {
+      console.warn("URL Fetch Error:", e);
+      return undefined;
+    } finally {
+      setLoadingStatus("");
+    }
+  };
+
   const handleSendMessage = async (content: string, image?: MessageImage) => {
     if (!currentSessionId || (!content.trim() && !image)) return;
 
@@ -123,6 +145,12 @@ const App: React.FC = () => {
     
     setSessions(updatedSessionsWithUser);
     setIsTyping(true);
+
+    // 웹 콘텐츠 읽기 시도
+    let webContent = undefined;
+    if (content) {
+      webContent = await fetchWebContent(content);
+    }
 
     const botMessageId = `bot-${Date.now()}`;
     const botMessage: Message = {
@@ -157,7 +185,8 @@ const App: React.FC = () => {
           }));
         },
         language,
-        image
+        image,
+        webContent
       );
     } catch (error) {
       console.error(error);
@@ -172,6 +201,7 @@ const App: React.FC = () => {
       }));
     } finally {
       setIsTyping(false);
+      setLoadingStatus("");
     }
   };
 
@@ -229,17 +259,17 @@ const App: React.FC = () => {
               <ChatMessage key={message.id} message={message} userProfile={userProfile} />
             ))
           )}
-          {isTyping && (
+          {(isTyping || loadingStatus) && (
             <div className="flex items-center space-x-3 text-[11px] font-black uppercase tracking-[0.2em] text-primary-500/70 ml-2 animate-in fade-in duration-300">
               <i className="fa-solid fa-sparkles animate-spin-slow"></i>
-              <span>Gemini is thinking...</span>
+              <span>{loadingStatus || "Gemini is thinking..."}</span>
             </div>
           )}
           <div ref={messagesEndRef} />
         </main>
 
         <footer className="p-3 sm:p-4 md:p-8 bg-transparent">
-          <ChatInput onSend={handleSendMessage} disabled={isTyping} />
+          <ChatInput onSend={handleSendMessage} disabled={isTyping || !!loadingStatus} />
           <p className="text-[8px] sm:text-[9px] font-bold text-center text-slate-400 uppercase tracking-[0.3em] mt-3 sm:mt-4 opacity-40">
             Powered by Gemini Intelligence
           </p>

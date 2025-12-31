@@ -6,7 +6,8 @@ export const streamChatResponse = async (
   history: Message[], 
   onChunk: (chunk: string) => void,
   language: Language = 'ko',
-  attachedImage?: MessageImage
+  attachedImage?: MessageImage,
+  webContent?: string // 추가: 웹 페이지에서 추출된 텍스트 데이터
 ) => {
   const apiKey = process.env.API_KEY;
   
@@ -41,11 +42,18 @@ export const streamChatResponse = async (
       fr: 'French'
     };
 
+    // 웹 콘텐츠가 있을 경우 시스템 지시어 보강
+    let systemInstruction = `You are a helpful AI assistant. You MUST respond in ${langNames[language]}. You can see and analyze images. Use markdown for formatting.`;
+    
+    if (webContent) {
+      systemInstruction += `\n\n[CONTEXT FROM WEB PAGE]\nThe user provided a URL, and here is its content:\n${webContent}\n\nPlease summarize this content or answer questions based on it if the user asks. If the content is empty or an error, ignore it.`;
+    }
+
     const chat = ai.chats.create({
       model: 'gemini-3-flash-preview',
       history: formattedHistory,
       config: {
-        systemInstruction: `You are a helpful AI assistant. You MUST respond in ${langNames[language]}. You can see and analyze images. Use markdown for formatting.`,
+        systemInstruction: systemInstruction,
       },
     });
 
