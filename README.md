@@ -1,10 +1,13 @@
 # 🚀 Chat_Jp - Next-Gen Gemini Messenger
 
-**Chat_Jp**는 Google의 최신 **Gemini 3 Flash Preview** 모델을 탑재한 고성능 인공지능 채팅 애플리케이션입니다. 세련된 인터페이스와 강력한 멀티모달 기능을 통해 텍스트 대화는 물론 이미지 분석까지 완벽하게 지원합니다.
+**Chat_Jp**는 Google의 최신 **Gemini 3 Flash Preview** 모델을 탑재한 고성능 인공지능 채팅 애플리케이션입니다. 세련된 인터페이스와 강력한 멀티모달 기능을 통해 텍스트 대화는 물론 이미지 분석, 그리고 웹페이지 요약까지 완벽하게 지원합니다.
 
 ## ✨ 주요 기능
 
 - **⚡ Gemini 3 Flash Engine**: 최신 모델을 사용하여 지연 시간을 최소화한 초고속 스트리밍 응답을 제공합니다.
+- **🌐 웹페이지 요약 및 분석 (URL Summary)**: 채팅창에 URL을 입력하면 실시간으로 해당 페이지의 핵심 내용을 읽어와 요약해 줍니다.
+  - 별도의 크롤러 설치 없이 `r.jina.ai`를 통해 웹 콘텐츠를 마크다운으로 변환하여 분석합니다.
+  - 뉴스 기사, 블로그 포스트, 기술 문서 등을 즉시 요약하고 관련 질문에 답변할 수 있습니다.
 - **🌍 글로벌 다국어 지원**: 사용자의 필요에 따라 AI의 답변 언어를 자유롭게 설정할 수 있습니다.
   - 지원 언어: **한국어, English, Español, Français**
   - 사이드바 하단의 언어 선택기를 통해 즉시 변경 가능하며, 설정은 브라우저에 저장됩니다.
@@ -14,13 +17,14 @@
 - **🌙 프리미엄 UI/UX**: 
   - Tailwind CSS 기반의 세련된 글래스모피즘(Glassmorphism) 디자인.
   - 다크 모드(Dark Mode) 및 라이트 모드 완벽 대응.
-  - 모바일과 데스크톱 모두에 최적화된 반응형 레이아웃.
+  - 모바일 사용자를 위한 최적화된 채팅 버블 및 레이아웃 적용.
 
 ## 🛠 기술 스택
 
 - **Frontend**: React 19 (Latest), TypeScript
 - **Styling**: Tailwind CSS
 - **AI Engine**: @google/genai (Gemini 3 Flash Preview)
+- **Web Reader**: r.jina.ai (LLM-friendly content extraction)
 - **Deployment**: Vercel (Optimized)
 - **Build Tool**: Vite
 
@@ -48,8 +52,6 @@ npm run dev
 # 프로덕션 빌드
 npm run build
 ```
-
-> **주의**: 로컬 환경에서 실행할 경우, `vite.config.ts` 또는 시스템 환경 변수에 `API_KEY`가 설정되어 있어야 Gemini API와 정상적으로 통신할 수 있습니다.
 
 ---
 Developed with ❤️ by **jpjp92**
