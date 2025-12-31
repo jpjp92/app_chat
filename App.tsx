@@ -14,19 +14,19 @@ const DEFAULT_PROFILE: UserProfile = {
 const WELCOME_TEXTS: Record<Language, { title: React.ReactNode, desc: string }> = {
   ko: {
     title: <>반가워요!<br/>오늘은 어떤 이야기를 나눌까요?</>,
-    desc: "궁금한 것을 물어보거나 사진을 공유해 보세요."
+    desc: "궁금한 것을 물어보거나 유튜브 링크를 공유해 보세요."
   },
   en: {
     title: <>Hello there!<br/>What's on your mind?</>,
-    desc: "Ask a question or share a photo to get started."
+    desc: "Ask a question or share a YouTube link to get started."
   },
   es: {
     title: <>¡Hola!<br/>¿De qué hablamos hoy?</>,
-    desc: "Haz una pregunta o comparte una foto para comenzar."
+    desc: "Haz una pregunta o comparte un enlace de YouTube para comenzar."
   },
   fr: {
     title: <>Bonjour !<br/>De quoi parlons-nous ?</>,
-    desc: "Posez une question ou partagez une photo pour commencer."
+    desc: "Posez une question ou partagez un lien YouTube pour commencer."
   }
 };
 
@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState<string>("");
+  const [loadingIcon, setLoadingIcon] = useState<string>("fa-sparkles");
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [language, setLanguage] = useState<Language>('ko');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -101,24 +102,29 @@ const App: React.FC = () => {
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
 
-  // URL 감지 및 웹 콘텐츠 추출 함수
+  // URL 감지 및 콘텐츠 추출 (유튜브 포함)
   const fetchWebContent = async (text: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const match = text.match(urlRegex);
-    if (!match) return undefined;
+    if (!match) return { content: undefined, type: 'text' as const };
 
     const url = match[0];
-    setLoadingStatus("Reading web page...");
+    const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
+    
+    setLoadingStatus(isYoutube ? "Analyzing video transcript..." : "Reading web page...");
+    setLoadingIcon(isYoutube ? "fa-play-circle" : "fa-globe");
+
     try {
       const response = await fetch(`https://r.jina.ai/${url}`);
-      if (!response.ok) return undefined;
+      if (!response.ok) return { content: undefined, type: 'text' as const };
       const content = await response.text();
-      return content.slice(0, 15000); // 텍스트가 너무 길면 잘라냄 (Token 관리)
+      return { 
+        content: content.slice(0, 20000), // 자막은 텍스트보다 길 수 있으므로 한도 상향
+        type: isYoutube ? 'video' as const : 'web' as const 
+      };
     } catch (e) {
-      console.warn("URL Fetch Error:", e);
-      return undefined;
-    } finally {
-      setLoadingStatus("");
+      console.warn("Fetch Error:", e);
+      return { content: undefined, type: 'text' as const };
     }
   };
 
@@ -136,7 +142,7 @@ const App: React.FC = () => {
     const updatedSessionsWithUser = sessions.map(s => {
       if (s.id === currentSessionId) {
         const newTitle = s.messages.length === 0 
-          ? (content.slice(0, 30) || "Image Analysis") + (content.length > 30 ? '...' : '') 
+          ? (content.slice(0, 30) || "Visual Analysis") + (content.length > 30 ? '...' : '') 
           : s.title;
         return { ...s, title: newTitle, messages: [...s.messages, userMessage] };
       }
@@ -146,10 +152,10 @@ const App: React.FC = () => {
     setSessions(updatedSessionsWithUser);
     setIsTyping(true);
 
-    // 웹 콘텐츠 읽기 시도
-    let webContent = undefined;
+    // 웹/비디오 콘텐츠 읽기 시도
+    let webData = { content: undefined as string | undefined, type: 'text' as 'text' | 'web' | 'video' };
     if (content) {
-      webContent = await fetchWebContent(content);
+      webData = await fetchWebContent(content);
     }
 
     const botMessageId = `bot-${Date.now()}`;
@@ -169,6 +175,9 @@ const App: React.FC = () => {
 
     try {
       let accumulatedText = "";
+      setLoadingStatus(webData.type === 'video' ? "Generating summary..." : "Gemini is thinking...");
+      setLoadingIcon("fa-sparkles");
+
       await streamChatResponse(
         content || "Analyze this image.",
         currentSession?.messages || [],
@@ -186,14 +195,15 @@ const App: React.FC = () => {
         },
         language,
         image,
-        webContent
+        webData.content,
+        webData.type
       );
     } catch (error) {
       console.error(error);
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {
           const updatedMessages = s.messages.map(m => 
-            m.id === botMessageId ? { ...m, content: "Something went wrong. Please try again later." } : m
+            m.id === botMessageId ? { ...m, content: "Service is temporarily unavailable. Please try again." } : m
           );
           return { ...s, messages: updatedMessages };
         }
@@ -202,6 +212,7 @@ const App: React.FC = () => {
     } finally {
       setIsTyping(false);
       setLoadingStatus("");
+      setLoadingIcon("fa-sparkles");
     }
   };
 
@@ -261,7 +272,7 @@ const App: React.FC = () => {
           )}
           {(isTyping || loadingStatus) && (
             <div className="flex items-center space-x-3 text-[11px] font-black uppercase tracking-[0.2em] text-primary-500/70 ml-2 animate-in fade-in duration-300">
-              <i className="fa-solid fa-sparkles animate-spin-slow"></i>
+              <i className={`fa-solid ${loadingIcon} animate-spin-slow`}></i>
               <span>{loadingStatus || "Gemini is thinking..."}</span>
             </div>
           )}
