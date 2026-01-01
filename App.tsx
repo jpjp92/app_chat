@@ -102,7 +102,6 @@ const App: React.FC = () => {
 
   const currentSession = sessions.find(s => s.id === currentSessionId) || null;
 
-  // URL 감지 및 콘텐츠 추출 (유튜브 포함)
   const fetchWebContent = async (text: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const match = text.match(urlRegex);
@@ -119,7 +118,7 @@ const App: React.FC = () => {
       if (!response.ok) return { content: undefined, type: 'text' as const };
       const content = await response.text();
       return { 
-        content: content.slice(0, 20000), // 자막은 텍스트보다 길 수 있으므로 한도 상향
+        content: content.slice(0, 20000),
         type: isYoutube ? 'video' as const : 'web' as const 
       };
     } catch (e) {
@@ -152,7 +151,6 @@ const App: React.FC = () => {
     setSessions(updatedSessionsWithUser);
     setIsTyping(true);
 
-    // 웹/비디오 콘텐츠 읽기 시도
     let webData = { content: undefined as string | undefined, type: 'text' as 'text' | 'web' | 'video' };
     if (content) {
       webData = await fetchWebContent(content);
@@ -198,12 +196,17 @@ const App: React.FC = () => {
         webData.content,
         webData.type
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const isRateLimit = error?.message?.includes('429');
+      const errorMessage = isRateLimit 
+        ? "The service is currently reaching its limit due to high traffic. Please wait a moment and try again." 
+        : "Something went wrong. The model might be temporarily busy. Please try again later.";
+
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {
           const updatedMessages = s.messages.map(m => 
-            m.id === botMessageId ? { ...m, content: "Service is temporarily unavailable. Please try again." } : m
+            m.id === botMessageId ? { ...m, content: errorMessage } : m
           );
           return { ...s, messages: updatedMessages };
         }
