@@ -1,3 +1,4 @@
+
 export enum Role {
   USER = 'user',
   MODEL = 'model',
@@ -6,9 +7,10 @@ export enum Role {
 
 export type Language = 'ko' | 'en' | 'es' | 'fr';
 
-export interface MessageImage {
+export interface MessageAttachment {
   data: string;
   mimeType: string;
+  fileName?: string;
 }
 
 export interface Message {
@@ -16,7 +18,9 @@ export interface Message {
   role: Role;
   content: string;
   timestamp: number;
-  image?: MessageImage;
+  attachment?: MessageAttachment;
+  // 하위 호환성을 위해 image 필드 유지 (선택적)
+  image?: MessageAttachment;
 }
 
 export interface ChatSession {

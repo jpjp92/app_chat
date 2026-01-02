@@ -16,6 +16,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
+  // 하위 호환성을 위해 attachment가 없으면 image 사용
+  const attachment = message.attachment || message.image;
+
   useEffect(() => {
     return () => {
       if (isPlaying) {
@@ -84,6 +87,24 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
         </div>
         
         <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} min-w-0`}>
+          {attachment && (
+            <div className={`mb-2 max-w-sm rounded-xl overflow-hidden shadow-xl ${isUser ? 'mr-0' : 'ml-0'}`}>
+              {attachment.mimeType === 'application/pdf' ? (
+                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 rounded-xl flex items-center space-x-3 min-w-[200px]">
+                  <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center text-red-500">
+                    <i className="fa-solid fa-file-pdf text-xl"></i>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{attachment.fileName || 'document.pdf'}</p>
+                    <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">PDF Document</p>
+                  </div>
+                </div>
+              ) : (
+                <img src={attachment.data} alt="Attachment" className="max-w-full h-auto block rounded-xl border border-slate-200 dark:border-slate-700" />
+              )}
+            </div>
+          )}
+          
           <div className={`relative px-4 py-2.5 sm:px-5 sm:py-4 rounded-2xl shadow-sm border ${
             isUser ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border-slate-100 dark:border-slate-700/50'
           }`}>
@@ -100,12 +121,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
                 {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
 
-              {/* Copy Button */}
               {message.content && (
                 <button 
                   onClick={handleCopy}
                   className={`flex items-center justify-center w-6 h-6 rounded-full transition-all hover:bg-slate-100 dark:hover:bg-slate-700 ${isCopied ? 'text-green-500' : 'text-slate-400'}`}
-                  title="Copy text"
                 >
                   <i className={`fa-solid ${isCopied ? 'fa-check' : 'fa-copy'} text-[10px]`}></i>
                 </button>
@@ -115,7 +134,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
                 <button 
                   onClick={handlePlayVoice}
                   className={`flex items-center justify-center w-6 h-6 rounded-full transition-all hover:bg-slate-100 dark:hover:bg-slate-700 ${isPlaying || isGenerating ? 'text-primary-500' : 'text-slate-400'}`}
-                  title={isGenerating ? "Generating voice..." : isPlaying ? "Stop listening" : "Listen to this message"}
                 >
                   <i className={`fa-solid ${isGenerating ? 'fa-spinner fa-spin' : isPlaying ? 'fa-circle-stop' : 'fa-volume-low'} text-[10px]`}></i>
                 </button>

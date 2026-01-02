@@ -1,32 +1,31 @@
 
 import { GoogleGenAI, GenerateContentResponse, Part, Modality } from "@google/genai";
-import { Role, Message, MessageImage, Language } from "../types";
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+import { Role, Message, MessageAttachment, Language } from "../types";
 
 let currentAudioSource: AudioBufferSourceNode | null = null;
 let sharedAudioContext: AudioContext | null = null;
 
-// 가이드라인에 따른 표준 베이스64 디코더
 function decodeBase64(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  try {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  } catch (e) {
+    return new Uint8Array(0);
   }
-  return bytes;
 }
 
-// 가이드라인에 따른 표준 오디오 데이터 디코더
 async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  // PCM 16-bit raw data를 Float32Array로 변환 (엔디언 및 정렬 고려)
-  const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
+  const dataInt16 = new Int16Array(data.buffer, data.byteOffset, Math.floor(data.byteLength / 2));
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
@@ -44,7 +43,7 @@ export const streamChatResponse = async (
   history: Message[], 
   onChunk: (chunk: string) => void,
   language: Language = 'ko',
-  attachedImage?: MessageImage,
+  attachment?: MessageAttachment,
   webContent?: string,
   contentType: 'text' | 'web' | 'video' = 'text'
 ) => {
@@ -52,16 +51,20 @@ export const streamChatResponse = async (
   if (!apiKey) throw new Error("API_KEY is missing");
 
   const ai = new GoogleGenAI({ apiKey });
-  const formattedHistory = history.map(msg => ({
-    role: msg.role === Role.USER ? 'user' : 'model',
-    parts: [{ text: msg.content }]
-  }));
+  
+  const formattedHistory = history
+    .filter(msg => msg.content && msg.content.trim() !== "" && msg.role !== Role.SYSTEM)
+    .slice(-10) // 최근 10개 메시지만 히스토리로 유지 (성능/토큰 절약)
+    .map(msg => ({
+      role: msg.role === Role.USER ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    }));
 
   const langNames = { ko: 'Korean', en: 'English', es: 'Spanish', fr: 'French' };
-  let systemInstruction = `You are a helpful AI assistant. Respond in ${langNames[language]}. Use markdown.`;
+  let systemInstruction = `You are a professional AI assistant. Respond in ${langNames[language]}. Use Markdown.`;
   
   if (webContent) {
-    systemInstruction += `\n\n[CONTEXT]\n${webContent}`;
+    systemInstruction += `\n\n[CONTENT TO ANALYZE]\n${webContent}`;
   }
 
   const chat = ai.chats.create({
@@ -70,19 +73,31 @@ export const streamChatResponse = async (
     config: { systemInstruction },
   });
 
-  const result = await chat.sendMessageStream({ 
-    message: attachedImage ? [{ text: prompt }, { inlineData: { data: attachedImage.data.split(',')[1], mimeType: attachedImage.mimeType } }] : prompt 
-  });
-  
-  let fullText = "";
-  for await (const chunk of result) {
-    const text = (chunk as GenerateContentResponse).text;
-    if (text) {
-      fullText += text;
-      onChunk(text);
-    }
+  let messagePayload: any = prompt;
+  if (attachment && attachment.data) {
+    const base64Data = attachment.data.includes(',') 
+      ? attachment.data.split(',')[1] 
+      : attachment.data;
+
+    messagePayload = [
+      { text: prompt },
+      { inlineData: { data: base64Data, mimeType: attachment.mimeType } }
+    ];
   }
-  return fullText;
+
+  try {
+    const result = await chat.sendMessageStream({ message: messagePayload });
+    for await (const chunk of result) {
+      try {
+        const text = chunk.text;
+        if (text) onChunk(text);
+      } catch (e) {
+        console.warn("Chunk processing skipped due to safety or empty text.");
+      }
+    }
+  } catch (e: any) {
+    throw e;
+  }
 };
 
 export const generateSpeech = async (text: string): Promise<Uint8Array> => {
@@ -90,56 +105,42 @@ export const generateSpeech = async (text: string): Promise<Uint8Array> => {
   if (!apiKey) throw new Error("API Key is missing");
 
   const ai = new GoogleGenAI({ apiKey });
-  // 너무 긴 텍스트는 TTS 엔진 성능을 위해 앞부분 500자 정도로 제한하여 요청
-  const truncatedText = text.length > 500 ? text.substring(0, 500) + "..." : text;
-
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: truncatedText }] }],
+    contents: [{ parts: [{ text: text.slice(0, 500) }] }],
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: 'Kore' }, 
-        },
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
       },
     },
   });
 
   const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!base64Audio) throw new Error("No audio data returned");
-
+  if (!base64Audio) throw new Error("No audio data");
   return decodeBase64(base64Audio);
 };
 
 export const stopAudio = () => {
   if (currentAudioSource) {
-    try {
-      currentAudioSource.stop();
-    } catch (e) {}
+    try { currentAudioSource.stop(); } catch (e) {}
     currentAudioSource = null;
   }
 };
 
 export const playRawAudio = async (data: Uint8Array) => {
+  if (data.length === 0) return;
   stopAudio();
-
   if (!sharedAudioContext) {
     sharedAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
   }
-  
-  if (sharedAudioContext.state === 'suspended') {
-    await sharedAudioContext.resume();
-  }
-
+  if (sharedAudioContext.state === 'suspended') await sharedAudioContext.resume();
   const audioBuffer = await decodeAudioData(data, sharedAudioContext, 24000, 1);
   const source = sharedAudioContext.createBufferSource();
   source.buffer = audioBuffer;
   source.connect(sharedAudioContext.destination);
-  
   currentAudioSource = source;
   source.start();
-
   return new Promise<void>((resolve) => {
     source.onended = () => {
       if (currentAudioSource === source) currentAudioSource = null;
