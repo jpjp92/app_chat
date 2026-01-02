@@ -1,58 +1,30 @@
+
 # 🚀 Chat_Jp - Next-Gen Gemini Messenger
 
-**Chat_Jp**는 Google의 최신 **Gemini 3 Flash Preview** 모델을 탑재한 고성능 인공지능 채팅 애플리케이션입니다. 세련된 인터페이스와 강력한 멀티모달 기능을 통해 텍스트 대화는 물론 이미지 분석, 그리고 유튜브 영상 요약까지 완벽하게 지원합니다.
+**Chat_Jp**는 Google의 최신 **Gemini 3 Flash Preview** 모델을 탑재한 고성능 인공지능 채팅 애플리케이션입니다.
+
+## 🚀 Vercel 배포 시 주의사항 (필독)
+
+이 앱은 음성 인식(STT)과 고성능 API 통신을 사용하므로, 배포 시 다음 설정을 반드시 확인해야 합니다.
+
+### 1. API_KEY 설정 (필수)
+- [Google AI Studio](https://aistudio.google.com/app/apikey)에서 발급받은 키를 Vercel 프로젝트 설정의 **Environment Variables**에 등록하세요.
+- **Key**: `API_KEY`
+- **Value**: 발급받은 키값
+
+### 2. HTTPS 환경
+- Vercel에 배포하면 자동으로 `https://` 주소가 부여됩니다.
+- **마이크 권한 및 음성 인식**은 보안 정책상 반드시 HTTPS 환경에서만 정상 작동합니다. 로컬 테스트 중 에러가 발생한다면 배포 후 테스트해 보세요.
+
+### 3. 음성 인식(STT) 관련
+- `no-speech` 에러가 발생한다면 마이크 권한이 허용되었는지, 혹은 주변이 너무 조용한지 확인해 보세요.
+- 이번 업데이트로 **연속 인식 모드**가 적용되어 훨씬 안정적으로 대화가 가능합니다.
 
 ## ✨ 주요 기능
-
-- **⚡ Gemini 3 Flash Engine**: 최신 모델을 사용하여 지연 시간을 최소화한 초고속 스트리밍 응답을 제공합니다.
-- **🎥 유튜브 동영상 요약 및 분석**: YouTube 링크를 공유하면 AI가 영상의 자막(Transcript)을 자동으로 읽고 핵심 내용을 요약합니다.
-  - 영상의 전체 흐름을 파악하여 **타임라인별 요약** 및 **주요 인사이트**를 추출합니다.
-  - 영상 내용에 대해 궁금한 점을 바로 질문하고 대화할 수 있습니다.
-- **🌐 웹페이지 요약 및 분석 (URL Summary)**: 채팅창에 일반 URL을 입력하면 실시간으로 해당 페이지의 핵심 내용을 읽어와 요약해 줍니다.
-  - 별도의 크롤러 설치 없이 `r.jina.ai`를 통해 웹 콘텐츠를 마크다운으로 변환하여 분석합니다.
-- **🌍 글로벌 다국어 지원**: 사용자의 필요에 따라 AI의 답변 언어를 자유롭게 설정할 수 있습니다.
-  - 지원 언어: **한국어, English, Español, Français**
-- **📸 멀티모달 시각 분석**: 이미지를 업로드하여 AI와 함께 사진 속 정보를 분석하고 질문을 주고받을 수 있습니다.
-- **💾 스마트 세션 관리**: 대화 히스토리가 브라우저 로컬 저장소에 자동으로 저장되어, 재방문 시에도 대화를 이어갈 수 있습니다.
-- **🖼️ 커스텀 프로필**: 사용자 이름과 아바타를 자유롭게 변경할 수 있으며, 설정된 정보는 영구적으로 유지됩니다.
-- **🌙 프리미엄 UI/UX**: 
-  - Tailwind CSS 기반의 세련된 글래스모피즘(Glassmorphism) 디자인.
-  - 다크 모드(Dark Mode) 및 라이트 모드 완벽 대응.
-  - 모바일 사용자를 위한 최적화된 채팅 버블 및 레이아웃 적용.
-
-## 🛠 기술 스택
-
-- **Frontend**: React 19 (Latest), TypeScript
-- **Styling**: Tailwind CSS
-- **AI Engine**: @google/genai (Gemini 3 Flash Preview)
-- **Content Reader**: r.jina.ai (LLM-friendly content extraction)
-- **Deployment**: Vercel (Optimized)
-- **Build Tool**: Vite
-
-## 🚀 Vercel 배포 방법
-
-이 프로젝트는 Vercel 환경에 최적화되어 있어 클릭 몇 번으로 배포가 가능합니다.
-
-1. **GitHub 연동**: 이 프로젝트를 본인의 GitHub 레포지토리에 푸시합니다.
-2. **Vercel 프로젝트 생성**: [Vercel Dashboard](https://vercel.com/new)에서 해당 레포지토리리를 선택합니다.
-3. **환경 변수 설정 (필수)**: 
-   - `Settings` > `Environment Variables` 섹션으로 이동합니다.
-   - **Key**: `API_KEY`
-   - **Value**: [Google AI Studio](https://aistudio.google.com/app/apikey)에서 발급받은 API Key를 입력합니다.
-4. **완료**: `Deploy`를 클릭하면 즉시 나만의 AI 채팅 앱이 라이브됩니다.
-
-## 📝 로컬 개발 가이드
-
-```bash
-# 의존성 패키지 설치
-npm install
-
-# 개발 서버 실행 (localhost:3000)
-npm run dev
-
-# 프로덕션 빌드
-npm run build
-```
+- **⚡ Gemini 3 Flash Engine**: 지연 시간을 최소화한 초고속 응답.
+- **🎥 유튜브/웹 요약**: URL만 넣으면 AI가 내용을 즉시 분석.
+- **🎙️ 음성 채팅 (STT/TTS)**: 말로 질문하고 목소리로 답변을 듣는 기능.
+- **📸 이미지 분석**: 사진 속 정보를 분석하는 멀티모달 기능.
 
 ---
 Developed with ❤️ by **jpjp92**

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Role, Message, ChatSession, UserProfile, MessageImage, Language } from './types';
 import { streamChatResponse } from './services/geminiService';
@@ -26,7 +27,7 @@ const WELCOME_TEXTS: Record<Language, { title: React.ReactNode, desc: string }> 
   },
   fr: {
     title: <>Bonjour !<br/>De quoi parlons-nous ?</>,
-    desc: "Posez une question ou partagez un lien YouTube pour commencer."
+    desc: "Posez une question ou partagez un lien YouTube pour comenzar."
   }
 };
 
@@ -39,9 +40,16 @@ const App: React.FC = () => {
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [language, setLanguage] = useState<Language>('ko');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // API Key 존재 여부 확인
+    if (!process.env.API_KEY) {
+      console.error("API_KEY is missing in environment variables.");
+      setApiKeyError(true);
+    }
+
     const savedSessions = localStorage.getItem('aura_sessions');
     if (savedSessions) {
       const parsed = JSON.parse(savedSessions);
@@ -128,6 +136,11 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, image?: MessageImage) => {
+    if (apiKeyError) {
+      alert("Vercel 환경 변수에서 API_KEY가 설정되지 않았습니다. 설정을 확인해 주세요.");
+      return;
+    }
+    
     if (!currentSessionId || (!content.trim() && !image)) return;
 
     const userMessage: Message = {
@@ -256,6 +269,13 @@ const App: React.FC = () => {
           onMenuClick={() => setIsSidebarOpen(true)}
         />
         
+        {apiKeyError && (
+          <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 text-[11px] font-bold text-red-500 flex items-center justify-center space-x-2">
+            <i className="fa-solid fa-circle-exclamation"></i>
+            <span>Warning: API_KEY is missing. Check your Vercel Project Settings.</span>
+          </div>
+        )}
+
         <main className="flex-1 overflow-y-auto p-4 space-y-4 md:p-6 lg:p-10 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-800">
           {currentSession?.messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center space-y-6 animate-in fade-in zoom-in-95 duration-1000">
@@ -283,7 +303,11 @@ const App: React.FC = () => {
         </main>
 
         <footer className="p-3 sm:p-4 md:p-8 bg-transparent">
-          <ChatInput onSend={handleSendMessage} disabled={isTyping || !!loadingStatus} />
+          <ChatInput 
+            onSend={handleSendMessage} 
+            disabled={isTyping || !!loadingStatus} 
+            language={language} 
+          />
           <p className="text-[8px] sm:text-[9px] font-bold text-center text-slate-400 uppercase tracking-[0.3em] mt-3 sm:mt-4 opacity-40">
             Powered by Gemini Intelligence
           </p>
