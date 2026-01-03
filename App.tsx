@@ -27,7 +27,7 @@ const WELCOME_TEXTS: Record<Language, { title: React.ReactNode, desc: string }> 
   },
   fr: {
     title: <>Bonjour !<br/>De quoi parlons-nous ?</>,
-    desc: "Posez une question, partagez un PDF ou un lien YouTube."
+    desc: "Posez une question, partagez un PDF ou un 유튜브 링크."
   }
 };
 
@@ -43,9 +43,8 @@ const App: React.FC = () => {
   const [apiKeyError, setApiKeyError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 초기 로드
   useEffect(() => {
-    if (!process.env.API_KEY) {
+    if (!process.env.API_KEY || process.env.API_KEY === "undefined") {
       setApiKeyError(true);
     }
 
@@ -75,7 +74,6 @@ const App: React.FC = () => {
     if (savedLang) setLanguage(savedLang as Language);
   }, []);
 
-  // 세션 저장 (대용량 바이너리 데이터는 제외하여 QuotaExceededError 방지)
   useEffect(() => {
     if (sessions.length > 0) {
       try {
@@ -83,7 +81,6 @@ const App: React.FC = () => {
           ...s,
           messages: s.messages.map(m => {
             if (m.attachment && m.attachment.data.length > 50000) {
-              // 파일이 너무 크면 데이터는 빼고 메타데이터만 저장
               return { ...m, attachment: { ...m.attachment, data: "" } };
             }
             return m;
@@ -155,8 +152,10 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, attachment?: MessageAttachment) => {
-    if (apiKeyError) {
-      alert("API_KEY is missing in your environment variables.");
+    // API 키 체크 강화
+    const currentApiKey = process.env.API_KEY;
+    if (!currentApiKey || currentApiKey === "undefined" || currentApiKey.trim() === "") {
+      alert("⚠️ Gemini API Key가 설정되지 않았습니다.\nVercel 환경 변수나 .env 파일에 API_KEY를 추가해주세요.");
       return;
     }
     
@@ -229,12 +228,15 @@ const App: React.FC = () => {
         webData.type
       );
     } catch (error: any) {
-      console.error("Stream error:", error);
-      const errorMessage = "An error occurred while processing. Please try again with a smaller file or different query.";
+      console.error("Stream error detail:", error);
+      // 에러 메시지를 더 구체적으로 표시하도록 수정
+      const rawError = error?.message || "Unknown error";
+      const displayError = `❌ 오류 발생: ${rawError}\n\n도움말: API 키가 올바른지, 혹은 할당량이 초과되지 않았는지 확인해주세요.`;
+      
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {
           const updatedMessages = s.messages.map(m => 
-            m.id === botMessageId ? { ...m, content: errorMessage } : m
+            m.id === botMessageId ? { ...m, content: displayError } : m
           );
           return { ...s, messages: updatedMessages };
         }
@@ -281,9 +283,9 @@ const App: React.FC = () => {
         />
         
         {apiKeyError && (
-          <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 text-[11px] font-bold text-red-500 flex items-center justify-center space-x-2">
+          <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-3 text-xs font-bold text-red-600 dark:text-red-400 flex items-center justify-center space-x-2 animate-pulse">
             <i className="fa-solid fa-circle-exclamation"></i>
-            <span>Warning: API_KEY is missing. Check your Project Settings.</span>
+            <span>설정 오류: Gemini API_KEY가 감지되지 않았습니다. 환경 변수를 확인해 주세요.</span>
           </div>
         )}
 
