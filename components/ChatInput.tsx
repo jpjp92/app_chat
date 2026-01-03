@@ -12,12 +12,14 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
   const [input, setInput] = useState('');
   const [selectedAttachment, setSelectedAttachment] = useState<MessageAttachment | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [isAutoSending, setIsAutoSending] = useState(false);
   const [sttError, setSttError] = useState<string | null>(null);
   const [isSTTSupported, setIsSTTSupported] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const finalTranscriptRef = useRef('');
+  const autoSendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const adjustHeight = () => {
     const textarea = textareaRef.current;
@@ -31,6 +33,37 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
   useEffect(() => {
     adjustHeight();
   }, [input]);
+
+  // 자동 전송 타이머 로직 (2초로 조정)
+  useEffect(() => {
+    if (isListening && input.trim()) {
+      if (autoSendTimerRef.current) clearTimeout(autoSendTimerRef.current);
+      
+      setIsAutoSending(false);
+
+      // 사용자가 말을 멈추고 1.2초가 지나면 "곧 전송됨" 상태 표시
+      const preSendTimer = setTimeout(() => {
+        if (isListening && input.trim()) setIsAutoSending(true);
+      }, 1200);
+
+      // 2초 후 자동 제출
+      autoSendTimerRef.current = setTimeout(() => {
+        if (isListening && input.trim()) {
+          handleSubmit();
+        }
+      }, 2000);
+
+      return () => {
+        clearTimeout(preSendTimer);
+      };
+    } else {
+      setIsAutoSending(false);
+    }
+
+    return () => {
+      if (autoSendTimerRef.current) clearTimeout(autoSendTimerRef.current);
+    };
+  }, [input, isListening]);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -80,11 +113,13 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
 
       recognition.onend = () => {
         setIsListening(false);
+        setIsAutoSending(false);
       };
 
       recognition.onerror = (event: any) => {
         console.warn("Speech Recognition Error:", event.error);
         setIsListening(false);
+        setIsAutoSending(false);
       };
 
       recognitionRef.current = recognition;
@@ -116,11 +151,18 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
+    
+    if (autoSendTimerRef.current) {
+      clearTimeout(autoSendTimerRef.current);
+      autoSendTimerRef.current = null;
+    }
+
     if ((input.trim() || selectedAttachment) && !disabled) {
       if (isListening) recognitionRef.current.stop();
       onSend(input, selectedAttachment || undefined);
       setInput('');
       setSelectedAttachment(null);
+      setIsAutoSending(false);
       if (textareaRef.current) {
         textareaRef.current.style.height = '40px';
       }
@@ -138,7 +180,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
     const file = e.target.files?.[0];
     if (file) {
       const isPdf = file.type === 'application/pdf';
-      const maxSize = isPdf ? 10 * 1024 * 1024 : 4 * 1024 * 1024; // PDF는 10MB까지
+      const maxSize = isPdf ? 10 * 1024 * 1024 : 4 * 1024 * 1024; 
 
       if (file.size > maxSize) {
         alert(isPdf ? "PDF must be smaller than 10MB" : "Image must be smaller than 4MB");
@@ -160,8 +202,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
 
   const getPlaceholder = () => {
     if (sttError) return sttError;
+    if (isAutoSending) return language === 'ko' ? "곧 전송됩니다..." : "Sending soon...";
     if (isListening) return language === 'ko' ? "듣고 있어요..." : "Listening...";
-    return "Ask anything or share a PDF/Image";
+    return "Ask anything";
   };
 
   return (
@@ -199,7 +242,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
           placeholder={getPlaceholder()}
           rows={1}
           disabled={disabled}
-          className={`flex-1 bg-transparent px-2 py-2 sm:py-2.5 outline-none resize-none text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 min-h-[36px] sm:min-h-[40px] max-h-[120px] sm:max-h-[150px] leading-relaxed block overflow-y-auto text-sm sm:text-[15px] font-medium`}
+          className={`flex-1 bg-transparent px-2 py-2 sm:py-2.5 outline-none resize-none text-slate-800 dark:text-slate-200 placeholder-slate-500 dark:placeholder-slate-400 min-h-[36px] sm:min-h-[40px] max-h-[120px] sm:max-h-[150px] leading-relaxed block overflow-y-auto text-sm sm:text-[15px] font-medium ${isAutoSending ? 'opacity-50' : 'opacity-100'}`}
         />
 
         <div className="flex items-center space-x-1 pr-1">
@@ -209,9 +252,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
               onClick={toggleListening}
               className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
                 isListening ? 'bg-primary-500 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
+              } ${isAutoSending ? 'animate-pulse' : ''}`}
             >
               <i className={`fa-solid ${isListening ? 'fa-microphone' : 'fa-microphone-lines'} text-sm`}></i>
+              {isAutoSending && (
+                <span className="absolute inset-0 rounded-full border-2 border-white animate-ping opacity-50"></span>
+              )}
             </button>
           )}
 
@@ -221,10 +267,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
             className={`flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
               (!input.trim() && !selectedAttachment) || disabled 
                 ? 'bg-transparent text-slate-400' 
-                : 'bg-white text-black shadow-md active:scale-90'
+                : isAutoSending ? 'bg-primary-500 text-white' : 'bg-white text-black shadow-md active:scale-90'
             }`}
           >
-            <i className="fa-solid fa-arrow-up text-xs sm:text-sm"></i>
+            <i className={`fa-solid ${isAutoSending ? 'fa-paper-plane' : 'fa-arrow-up'} text-xs sm:text-sm`}></i>
           </button>
         </div>
       </form>

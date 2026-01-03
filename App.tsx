@@ -27,7 +27,7 @@ const WELCOME_TEXTS: Record<Language, { title: React.ReactNode, desc: string }> 
   },
   fr: {
     title: <>Bonjour !<br/>De quoi parlons-nous ?</>,
-    desc: "Posez une question, partagez un PDF 또는 un enlace YouTube."
+    desc: "Posez une question, partagez un PDF ou un lien YouTube."
   }
 };
 
