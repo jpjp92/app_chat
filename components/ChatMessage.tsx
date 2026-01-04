@@ -50,7 +50,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
     
     setIsGenerating(true);
     try {
-      const plainText = message.content.replace(/[#*`_~]/g, '').slice(0, 1000);
+      // 마크다운 문법 제거 후 최대 2000자까지 음성 합성
+      const plainText = message.content.replace(/[#*`_~]/g, '').slice(0, 2000);
       const audioData = await generateSpeech(plainText);
       
       setIsGenerating(false);
@@ -72,6 +73,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
     li: ({ ...props }) => <li className="pl-1 text-slate-700 dark:text-slate-300" {...props} />,
     code: ({ children }: any) => <code className="bg-slate-100 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-[12px] font-mono text-primary-600 border border-slate-200 dark:border-slate-800">{children}</code>,
   };
+
+  const getSourceIcon = () => {
+    switch (message.sourceType) {
+      case 'web': return { icon: 'fa-globe', text: 'Web Content' };
+      case 'video': return { icon: 'fa-play-circle', text: 'Video Summary' };
+      case 'pdf': return { icon: 'fa-file-pdf', text: 'PDF Document' };
+      case 'image': return { icon: 'fa-image', text: 'Visual Analysis' };
+      default: return null;
+    }
+  };
+
+  const sourceInfo = getSourceIcon();
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-6 sm:mb-8 group animate-in fade-in slide-in-from-bottom-4 duration-500`}>
@@ -120,6 +133,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
               <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] opacity-30">
                 {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
+
+              {sourceInfo && (
+                <div className={`flex items-center px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 space-x-1.5 ${isUser ? 'mr-auto' : 'ml-auto'}`}>
+                  <i className={`fa-solid ${sourceInfo.icon} text-[8px] text-primary-500`}></i>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{sourceInfo.text}</span>
+                </div>
+              )}
 
               {message.content && (
                 <button 

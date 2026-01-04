@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Role, Message, ChatSession, UserProfile, MessageAttachment, Language } from './types';
+import { Role, Message, ChatSession, UserProfile, MessageAttachment, Language, SourceType } from './types';
 import { streamChatResponse } from './services/geminiService';
 import ChatSidebar from './components/ChatSidebar';
 import ChatMessage from './components/ChatMessage';
@@ -135,11 +135,26 @@ const App: React.FC = () => {
     const url = match[0];
     const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
     
-    setLoadingStatus(isYoutube ? "Analyzing video transcript..." : "Reading web page...");
+    setLoadingStatus(isYoutube ? (language === 'ko' ? "영상 요약 분석 중..." : "Analyzing video...") : (language === 'ko' ? "웹 페이지 읽는 중..." : "Reading page..."));
     setLoadingIcon(isYoutube ? "fa-play-circle" : "fa-globe");
 
     try {
-      const response = await fetch(`https://r.jina.ai/${url}`);
+      const response = await fetch(`https://r.jina.ai/${url}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/event-stream',
+          'X-With-Images-Summary': 'true',
+          'X-Target-Selector': 'article, main, .post-content'
+        }
+      });
+
+      if (response.status === 403) {
+        return { 
+          content: `[ERROR: 403 Forbidden] 이 사이트(예: Medium)는 현재 보안 정책으로 인해 시스템의 직접 접근이 차단되어 있습니다. 시스템은 URL과 제목만으로 내용을 추론하거나 일반적인 지식을 바탕으로 답변해 드릴 것입니다. 상세한 분석이 필요하시면 내용을 복사하여 직접 붙여넣어 주세요.`, 
+          type: 'text' as const 
+        };
+      }
+      
       if (!response.ok) return { content: undefined, type: 'text' as const };
       const content = await response.text();
       return { 
@@ -152,10 +167,9 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, attachment?: MessageAttachment) => {
-    // API 키 체크 강화
     const currentApiKey = process.env.API_KEY;
     if (!currentApiKey || currentApiKey === "undefined" || currentApiKey.trim() === "") {
-      alert("⚠️ Gemini API Key가 설정되지 않았습니다.\nVercel 환경 변수나 .env 파일에 API_KEY를 추가해주세요.");
+      alert("⚠️ Gemini API Key가 설정되지 않았습니다.\nVercel 환경 변수에 API_KEY를 추가해주세요.");
       return;
     }
     
@@ -166,7 +180,8 @@ const App: React.FC = () => {
       role: Role.USER,
       content: content || (attachment?.mimeType === 'application/pdf' ? `Analyzed PDF: ${attachment.fileName || 'document.pdf'}` : "[Image]"),
       timestamp: Date.now(),
-      attachment
+      attachment,
+      sourceType: attachment?.mimeType === 'application/pdf' ? 'pdf' : (attachment ? 'image' : 'text')
     };
 
     setSessions(prev => prev.map(s => {
@@ -181,9 +196,10 @@ const App: React.FC = () => {
     
     setIsTyping(true);
 
-    let webData = { content: undefined as string | undefined, type: 'text' as 'text' | 'web' | 'video' };
+    let webData = { content: undefined as string | undefined, type: 'text' as SourceType };
     if (content && !attachment) {
-      webData = await fetchWebContent(content);
+      const res = await fetchWebContent(content);
+      webData = { content: res.content, type: res.type };
     }
 
     const botMessageId = `bot-${Date.now()}`;
@@ -192,6 +208,7 @@ const App: React.FC = () => {
       role: Role.MODEL,
       content: '',
       timestamp: Date.now(),
+      sourceType: webData.type !== 'text' && webData.content && !webData.content.includes("[ERROR: 403]") ? webData.type : undefined
     };
 
     setSessions(prev => prev.map(s => {
@@ -204,8 +221,12 @@ const App: React.FC = () => {
     try {
       let accumulatedText = "";
       const isPdf = attachment?.mimeType === 'application/pdf';
-      setLoadingStatus(isPdf ? "Reading PDF..." : webData.type === 'video' ? "Summarizing..." : "Thinking...");
-      setLoadingIcon(isPdf ? "fa-file-lines" : "fa-sparkles");
+      
+      if (webData.content?.includes("[ERROR: 403]")) {
+        setLoadingStatus(language === 'ko' ? "제한된 정보로 분석 중..." : "Analyzing restricted info...");
+      } else {
+        setLoadingStatus(isPdf ? "Reading PDF..." : webData.type === 'video' ? "Summarizing..." : webData.type === 'web' ? "Reading web..." : "Thinking...");
+      }
 
       await streamChatResponse(
         content || (isPdf ? "Analyze and summarize this PDF document." : "Analyze this image."),
@@ -225,13 +246,11 @@ const App: React.FC = () => {
         language,
         attachment,
         webData.content,
-        webData.type
+        webData.type === 'web' || webData.type === 'video' ? webData.type : 'text'
       );
     } catch (error: any) {
-      console.error("Stream error detail:", error);
-      // 에러 메시지를 더 구체적으로 표시하도록 수정
       const rawError = error?.message || "Unknown error";
-      const displayError = `❌ 오류 발생: ${rawError}\n\n도움말: API 키가 올바른지, 혹은 할당량이 초과되지 않았는지 확인해주세요.`;
+      const displayError = `❌ 오류 발생: ${rawError}\n\n도움말: API 키가 올바른지 확인해주세요.`;
       
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {

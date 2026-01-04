@@ -247,7 +247,7 @@ export const generateSpeech = async (text: string): Promise<Uint8Array> => {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: text.slice(0, 500) }] }],
+    contents: [{ parts: [{ text: text.slice(0, 2000) }] }], // 500자 -> 2000자로 상향
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {

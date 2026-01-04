@@ -13,13 +13,16 @@ export interface MessageAttachment {
   fileName?: string;
 }
 
+export type SourceType = 'web' | 'video' | 'pdf' | 'image' | 'text';
+
 export interface Message {
   id: string;
   role: Role;
   content: string;
   timestamp: number;
   attachment?: MessageAttachment;
-  // 하위 호환성을 위해 image 필드 유지 (선택적)
+  sourceType?: SourceType;
+  // 하위 호환성을 위해 image 필드 유지
   image?: MessageAttachment;
 }
 
