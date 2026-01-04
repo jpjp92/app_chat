@@ -9,7 +9,13 @@ let sharedAudioContext: AudioContext | null = null;
  * 활성 가능한 API 키 목록 가져오기
  */
 const getApiKeys = () => {
-  const keys = [process.env.API_KEY, process.env.API_KEY2].filter(k => k && k !== "undefined" && k.trim() !== "");
+  const keys = [process.env.API_KEY, process.env.API_KEY2]
+    .filter(k => k && k !== "undefined" && k.trim() !== "");
+  
+  // 보안을 위해 키의 일부만 노출하여 개수 확인
+  if (keys.length > 0) {
+    console.log(`[Gemini Service] ${keys.length} API keys are active.`);
+  }
   return keys;
 };
 
@@ -55,22 +61,36 @@ async function decodeAudioData(
 /**
  * 페일오버를 지원하는 Gemini 실행 유틸리티
  */
-async function runWithFailover<T>(operation: (ai: GoogleGenAI) => Promise<T>): Promise<T> {
+async function runWithFailover<T>(operation: (ai: GoogleGenAI, isRetry: boolean) => Promise<T>): Promise<T> {
   const keys = getApiKeys();
-  if (keys.length === 0) throw new Error("No valid API keys found.");
+  if (keys.length === 0) throw new Error("API 키가 설정되지 않았습니다. Vercel 환경 변수를 확인해주세요.");
 
   let lastError: any = null;
   for (let i = 0; i < keys.length; i++) {
     try {
       const ai = new GoogleGenAI({ apiKey: keys[i]! });
-      return await operation(ai);
+      // 첫 번째 시도가 아니면 isRetry를 true로 전달
+      return await operation(ai, i > 0);
     } catch (error: any) {
-      console.warn(`API Key ${i + 1} failed, trying next if available...`, error);
+      console.error(`API Key ${i + 1} failed:`, error.message || error);
       lastError = error;
-      continue;
+      
+      // 다음 키가 있으면 계속 진행
+      if (i < keys.length - 1) {
+        console.warn("Retrying with backup API key...");
+        continue;
+      }
     }
   }
-  throw lastError;
+  
+  // 모든 키가 실패했을 때의 에러 메시지 정제
+  let errorMessage = lastError?.message || JSON.stringify(lastError);
+  try {
+    const parsed = JSON.parse(errorMessage);
+    errorMessage = parsed.error?.message || errorMessage;
+  } catch (e) {}
+  
+  throw new Error(errorMessage);
 }
 
 /**
@@ -79,7 +99,7 @@ async function runWithFailover<T>(operation: (ai: GoogleGenAI) => Promise<T>): P
 export const streamChatResponse = async (
   prompt: string, 
   history: Message[], 
-  onChunk: (chunk: string) => void,
+  onChunk: (chunk: string, isReset: boolean) => void,
   language: Language = 'ko',
   attachment?: MessageAttachment,
   webContent?: string,
@@ -88,14 +108,11 @@ export const streamChatResponse = async (
 ) => {
   const langNames = { ko: 'Korean', en: 'English', es: 'Spanish', fr: 'French' };
   
-  // 날씨 및 지역 정보 검색 최적화 인스트럭션
   let systemInstruction = `You are a professional AI assistant. Respond in ${langNames[language]}. 
   Use Markdown for beautiful formatting.
   
   [GROUNDING INSTRUCTION]
   - Use Google Search for: weather, news, current time, stock prices, and factual verification.
-  - For weather queries: Always provide the current temperature, precipitation, and a brief recommendation (e.g., "Take an umbrella").
-  - If a specific location isn't mentioned for weather, assume the user's current context is South Korea unless specified otherwise.
   - Always extract and display source links via groundingMetadata.`;
   
   if (webContent) {
@@ -126,7 +143,12 @@ export const streamChatResponse = async (
     tools: [{ googleSearch: {} }] 
   };
 
-  await runWithFailover(async (ai) => {
+  await runWithFailover(async (ai, isRetry) => {
+    // 재시도 시 기존 텍스트 버퍼 초기화 요청
+    if (isRetry) {
+      onChunk("", true);
+    }
+
     const result = await ai.models.generateContentStream({
       model: 'gemini-3-flash-preview',
       contents,
@@ -150,7 +172,7 @@ export const streamChatResponse = async (
       }
 
       if (chunk.text) {
-        onChunk(chunk.text);
+        onChunk(chunk.text, false);
       }
     }
   });

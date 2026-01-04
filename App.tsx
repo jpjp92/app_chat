@@ -44,7 +44,6 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // API_KEY와 API_KEY2가 둘 다 없는 경우에만 에러 표시
     const key1 = process.env.API_KEY;
     const key2 = process.env.API_KEY2;
     const hasAnyKey = (key1 && key1 !== "undefined") || (key2 && key2 !== "undefined");
@@ -173,7 +172,7 @@ const App: React.FC = () => {
 
   const handleSendMessage = async (content: string, attachment?: MessageAttachment) => {
     if (apiKeyError) {
-      alert("⚠️ Gemini API Key가 설정되지 않았습니다.\nVercel 환경 변수에 API_KEY 또는 API_KEY2를 추가해주세요.");
+      alert("⚠️ Gemini API Key가 설정되지 않았습니다.");
       return;
     }
     
@@ -234,8 +233,13 @@ const App: React.FC = () => {
       await streamChatResponse(
         content || (isPdf ? "Analyze and summarize this PDF document." : "Analyze this image."),
         currentSession?.messages || [],
-        (chunk) => {
-          accumulatedText += chunk;
+        (chunk, isReset) => {
+          if (isReset) {
+            accumulatedText = ""; // 페일오버 시 텍스트 초기화
+          } else {
+            accumulatedText += chunk;
+          }
+          
           setSessions(prev => prev.map(s => {
             if (s.id === currentSessionId) {
               const updatedMessages = s.messages.map(m => 
@@ -269,8 +273,15 @@ const App: React.FC = () => {
         }
       );
     } catch (error: any) {
-      const rawError = error?.message || "Unknown error";
-      const displayError = `❌ 오류 발생: ${rawError}. API 할당량 초과 또는 인증 문제일 수 있습니다.`;
+      // 에러 메시지를 훨씬 깔끔하게 표시
+      let displayError = "❌ 대화 중 오류가 발생했습니다.";
+      if (error.message.includes("quota") || error.message.includes("429")) {
+        displayError = "⚠️ 모든 API 키의 할당량이 초과되었습니다. 잠시 후 다시 시도해주세요.";
+      } else if (error.message.includes("API key not valid") || error.message.includes("401")) {
+        displayError = "🔑 API 키 인증에 실패했습니다. Vercel 환경 변수 설정을 확인해주세요.";
+      } else {
+        displayError = `❌ 오류: ${error.message}`;
+      }
       
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {
@@ -324,7 +335,7 @@ const App: React.FC = () => {
         {apiKeyError && (
           <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-3 text-xs font-bold text-red-600 dark:text-red-400 flex items-center justify-center space-x-2 animate-pulse">
             <i className="fa-solid fa-circle-exclamation"></i>
-            <span>Gemini API_KEY 환경 변수가 전혀 설정되지 않았습니다. Vercel에서 API_KEY 또는 API_KEY2를 추가하세요.</span>
+            <span>Gemini API_KEY 환경 변수가 설정되지 않았습니다. Vercel 설정을 확인하세요.</span>
           </div>
         )}
 
