@@ -15,6 +15,11 @@ export interface MessageAttachment {
 
 export type SourceType = 'web' | 'video' | 'pdf' | 'image' | 'text';
 
+export interface GroundingSource {
+  title: string;
+  uri: string;
+}
+
 export interface Message {
   id: string;
   role: Role;
@@ -22,6 +27,7 @@ export interface Message {
   timestamp: number;
   attachment?: MessageAttachment;
   sourceType?: SourceType;
+  groundingSources?: GroundingSource[];
   // 하위 호환성을 위해 image 필드 유지
   image?: MessageAttachment;
 }

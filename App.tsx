@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Role, Message, ChatSession, UserProfile, MessageAttachment, Language, SourceType } from './types';
+import { Role, Message, ChatSession, UserProfile, MessageAttachment, Language, SourceType, GroundingSource } from './types';
 import { streamChatResponse } from './services/geminiService';
 import ChatSidebar from './components/ChatSidebar';
 import ChatMessage from './components/ChatMessage';
@@ -15,19 +15,19 @@ const DEFAULT_PROFILE: UserProfile = {
 const WELCOME_TEXTS: Record<Language, { title: React.ReactNode, desc: string }> = {
   ko: {
     title: <>반가워요!<br/>오늘은 어떤 이야기를 나눌까요?</>,
-    desc: "궁금한 것을 물어보거나 PDF 문서, 유튜브 링크를 공유해 보세요."
+    desc: "궁금한 것을 물어보거나 실시간 검색이 필요한 질문을 해보세요."
   },
   en: {
     title: <>Hello there!<br/>What's on your mind?</>,
-    desc: "Ask a question, share a PDF, or drop a YouTube link to get started."
+    desc: "Ask a question, share a PDF, or ask about latest news."
   },
   es: {
     title: <>¡Hola!<br/>¿De qué hablamos hoy?</>,
-    desc: "Haz una pregunta, comparte un PDF o un enlace de YouTube para comenzar."
+    desc: "Haz una pregunta o consulta las últimas noticias."
   },
   fr: {
     title: <>Bonjour !<br/>De quoi parlons-nous ?</>,
-    desc: "Posez une question, partagez un PDF ou un 유튜브 링크."
+    desc: "Posez une question ou renseignez-vous sur l'actualité."
   }
 };
 
@@ -44,7 +44,12 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!process.env.API_KEY || process.env.API_KEY === "undefined") {
+    // API_KEY와 API_KEY2가 둘 다 없는 경우에만 에러 표시
+    const key1 = process.env.API_KEY;
+    const key2 = process.env.API_KEY2;
+    const hasAnyKey = (key1 && key1 !== "undefined") || (key2 && key2 !== "undefined");
+    
+    if (!hasAnyKey) {
       setApiKeyError(true);
     }
 
@@ -150,7 +155,7 @@ const App: React.FC = () => {
 
       if (response.status === 403) {
         return { 
-          content: `[ERROR: 403 Forbidden] 이 사이트(예: Medium)는 현재 보안 정책으로 인해 시스템의 직접 접근이 차단되어 있습니다. 시스템은 URL과 제목만으로 내용을 추론하거나 일반적인 지식을 바탕으로 답변해 드릴 것입니다. 상세한 분석이 필요하시면 내용을 복사하여 직접 붙여넣어 주세요.`, 
+          content: `[ERROR: 403 Forbidden] 이 사이트는 현재 보안 정책으로 인해 직접 접근이 차단되어 있습니다. 대신 Google 검색을 통해 관련 정보를 찾아보겠습니다.`, 
           type: 'text' as const 
         };
       }
@@ -167,9 +172,8 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, attachment?: MessageAttachment) => {
-    const currentApiKey = process.env.API_KEY;
-    if (!currentApiKey || currentApiKey === "undefined" || currentApiKey.trim() === "") {
-      alert("⚠️ Gemini API Key가 설정되지 않았습니다.\nVercel 환경 변수에 API_KEY를 추가해주세요.");
+    if (apiKeyError) {
+      alert("⚠️ Gemini API Key가 설정되지 않았습니다.\nVercel 환경 변수에 API_KEY 또는 API_KEY2를 추가해주세요.");
       return;
     }
     
@@ -208,7 +212,8 @@ const App: React.FC = () => {
       role: Role.MODEL,
       content: '',
       timestamp: Date.now(),
-      sourceType: webData.type !== 'text' && webData.content && !webData.content.includes("[ERROR: 403]") ? webData.type : undefined
+      sourceType: webData.type !== 'text' && webData.content && !webData.content.includes("[ERROR: 403]") ? webData.type : undefined,
+      groundingSources: []
     };
 
     setSessions(prev => prev.map(s => {
@@ -220,13 +225,11 @@ const App: React.FC = () => {
 
     try {
       let accumulatedText = "";
+      let foundSources: GroundingSource[] = [];
       const isPdf = attachment?.mimeType === 'application/pdf';
       
-      if (webData.content?.includes("[ERROR: 403]")) {
-        setLoadingStatus(language === 'ko' ? "제한된 정보로 분석 중..." : "Analyzing restricted info...");
-      } else {
-        setLoadingStatus(isPdf ? "Reading PDF..." : webData.type === 'video' ? "Summarizing..." : webData.type === 'web' ? "Reading web..." : "Thinking...");
-      }
+      setLoadingStatus(isPdf ? "Reading PDF..." : "Thinking...");
+      setLoadingIcon("fa-magnifying-glass");
 
       await streamChatResponse(
         content || (isPdf ? "Analyze and summarize this PDF document." : "Analyze this image."),
@@ -246,11 +249,28 @@ const App: React.FC = () => {
         language,
         attachment,
         webData.content,
-        webData.type === 'web' || webData.type === 'video' ? webData.type : 'text'
+        webData.type === 'web' || webData.type === 'video' ? webData.type : 'text',
+        (sources) => {
+          foundSources = [...foundSources, ...sources];
+          const uniqueSources = Array.from(new Set(foundSources.map(s => s.uri)))
+            .map(uri => foundSources.find(s => s.uri === uri)!);
+            
+          setSessions(prev => prev.map(s => {
+            if (s.id === currentSessionId) {
+              return {
+                ...s,
+                messages: s.messages.map(m => 
+                  m.id === botMessageId ? { ...m, groundingSources: uniqueSources } : m
+                )
+              };
+            }
+            return s;
+          }));
+        }
       );
     } catch (error: any) {
       const rawError = error?.message || "Unknown error";
-      const displayError = `❌ 오류 발생: ${rawError}\n\n도움말: API 키가 올바른지 확인해주세요.`;
+      const displayError = `❌ 오류 발생: ${rawError}. API 할당량 초과 또는 인증 문제일 수 있습니다.`;
       
       setSessions(prev => prev.map(s => {
         if (s.id === currentSessionId) {
@@ -304,7 +324,7 @@ const App: React.FC = () => {
         {apiKeyError && (
           <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-3 text-xs font-bold text-red-600 dark:text-red-400 flex items-center justify-center space-x-2 animate-pulse">
             <i className="fa-solid fa-circle-exclamation"></i>
-            <span>설정 오류: Gemini API_KEY가 감지되지 않았습니다. 환경 변수를 확인해 주세요.</span>
+            <span>Gemini API_KEY 환경 변수가 전혀 설정되지 않았습니다. Vercel에서 API_KEY 또는 API_KEY2를 추가하세요.</span>
           </div>
         )}
 
@@ -328,7 +348,7 @@ const App: React.FC = () => {
           {(isTyping || loadingStatus) && (
             <div className="flex items-center space-x-3 text-[11px] font-black uppercase tracking-[0.2em] text-primary-500/70 ml-2">
               <i className={`fa-solid ${loadingIcon || 'fa-sparkles'} animate-spin-slow`}></i>
-              <span>{loadingStatus || "Thinking..."}</span>
+              <span>{loadingStatus || "Searching Google..."}</span>
             </div>
           )}
           <div ref={messagesEndRef} />

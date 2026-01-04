@@ -1,99 +1,21 @@
 
-import { GoogleGenAI, GenerateContentResponse, Part, Modality, Type, FunctionDeclaration } from "@google/genai";
-import { Role, Message, MessageAttachment, Language } from "../types";
+import { GoogleGenAI, GenerateContentResponse, Part, Modality, Type } from "@google/genai";
+import { Role, Message, MessageAttachment, Language, GroundingSource } from "../types";
 
 let currentAudioSource: AudioBufferSourceNode | null = null;
 let sharedAudioContext: AudioContext | null = null;
 
-const WEATHER_API_KEY = "61f901ce78722064c74994088027e75b";
-
 /**
- * 선택된 언어에 맞는 로캘 문자열을 반환합니다.
+ * 활성 가능한 API 키 목록 가져오기
  */
-function getLocale(lang: Language): string {
-  const map: Record<Language, string> = { ko: 'ko-KR', en: 'en-US', es: 'es-ES', fr: 'fr-FR' };
-  return map[lang] || 'ko-KR';
-}
-
-/**
- * 실시간 한국 표준시(KST) 정보를 선택된 언어 형식으로 가져옵니다.
- */
-function fetchCurrentTime(lang: Language) {
-  const now = new Date();
-  const locale = getLocale(lang);
-  const options: Intl.DateTimeFormatOptions = {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: lang === 'en' // 영어일 때는 12시간제 선호
-  };
-  const kstTime = new Intl.DateTimeFormat(locale, options).format(now);
-  return {
-    kst_display: kstTime,
-    iso_string: now.toISOString(),
-    timezone: 'KST (Asia/Seoul)',
-    requested_language: lang
-  };
-}
-
-/**
- * 특정 지역의 현재 날씨 정보를 가져옵니다.
- * @param location 도시명
- * @param lang 결과 언어 (ko, en, es, fr)
- */
-async function fetchCurrentWeather(location: string, lang: Language) {
-  // OpenWeatherMap의 언어 코드는 'kr'이 아닌 'kr' 또는 'en' 등을 사용함
-  const apiLang = lang === 'ko' ? 'kr' : lang; 
-  try {
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${WEATHER_API_KEY}&units=metric&lang=${apiLang}`
-    );
-    if (!response.ok) throw new Error("Weather data not found");
-    const data = await response.json();
-    return {
-      location: data.name,
-      temperature: data.main.temp,
-      description: data.weather[0].description,
-      humidity: data.main.humidity,
-      windSpeed: data.wind.speed,
-      condition: data.weather[0].main,
-      unit: "Celsius"
-    };
-  } catch (error) {
-    return { error: "Failed to fetch weather data." };
-  }
-}
-
-// Gemini에게 제공할 도구(Function) 정의들
-const weatherFunctionDeclaration: FunctionDeclaration = {
-  name: 'getCurrentWeather',
-  parameters: {
-    type: Type.OBJECT,
-    description: '특정 지역의 현재 날씨 정보를 가져옵니다.',
-    properties: {
-      location: {
-        type: Type.STRING,
-        description: '날씨를 조회할 도시 이름 (예: Seoul, Tokyo, London, New York)',
-      },
-    },
-    required: ['location'],
-  },
+const getApiKeys = () => {
+  const keys = [process.env.API_KEY, process.env.API_KEY2].filter(k => k && k !== "undefined" && k.trim() !== "");
+  return keys;
 };
 
-const timeFunctionDeclaration: FunctionDeclaration = {
-  name: 'getCurrentTime',
-  parameters: {
-    type: Type.OBJECT,
-    description: '현재 한국 표준시(KST) 날짜와 시간 정보를 가져옵니다.',
-    properties: {},
-  },
-};
-
+/**
+ * Base64 디코딩 유틸리티
+ */
 function decodeBase64(base64: string): Uint8Array {
   try {
     const binaryString = atob(base64);
@@ -108,6 +30,9 @@ function decodeBase64(base64: string): Uint8Array {
   }
 }
 
+/**
+ * PCM 오디오 데이터 디코딩
+ */
 async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
@@ -127,6 +52,30 @@ async function decodeAudioData(
   return buffer;
 }
 
+/**
+ * 페일오버를 지원하는 Gemini 실행 유틸리티
+ */
+async function runWithFailover<T>(operation: (ai: GoogleGenAI) => Promise<T>): Promise<T> {
+  const keys = getApiKeys();
+  if (keys.length === 0) throw new Error("No valid API keys found.");
+
+  let lastError: any = null;
+  for (let i = 0; i < keys.length; i++) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: keys[i]! });
+      return await operation(ai);
+    } catch (error: any) {
+      console.warn(`API Key ${i + 1} failed, trying next if available...`, error);
+      lastError = error;
+      continue;
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Gemini 채팅 스트리밍 응답
+ */
 export const streamChatResponse = async (
   prompt: string, 
   history: Message[], 
@@ -134,13 +83,25 @@ export const streamChatResponse = async (
   language: Language = 'ko',
   attachment?: MessageAttachment,
   webContent?: string,
-  contentType: 'text' | 'web' | 'video' = 'text'
+  contentType: 'text' | 'web' | 'video' = 'text',
+  onMetadata?: (sources: GroundingSource[]) => void
 ) => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API_KEY is missing");
-
-  const ai = new GoogleGenAI({ apiKey });
+  const langNames = { ko: 'Korean', en: 'English', es: 'Spanish', fr: 'French' };
   
+  // 날씨 및 지역 정보 검색 최적화 인스트럭션
+  let systemInstruction = `You are a professional AI assistant. Respond in ${langNames[language]}. 
+  Use Markdown for beautiful formatting.
+  
+  [GROUNDING INSTRUCTION]
+  - Use Google Search for: weather, news, current time, stock prices, and factual verification.
+  - For weather queries: Always provide the current temperature, precipitation, and a brief recommendation (e.g., "Take an umbrella").
+  - If a specific location isn't mentioned for weather, assume the user's current context is South Korea unless specified otherwise.
+  - Always extract and display source links via groundingMetadata.`;
+  
+  if (webContent) {
+    systemInstruction += `\n\n[CONTENT TO ANALYZE]\n${webContent}`;
+  }
+
   const contents: any[] = history
     .filter(msg => msg.content && msg.content.trim() !== "" && msg.role !== Role.SYSTEM)
     .slice(-10)
@@ -148,19 +109,6 @@ export const streamChatResponse = async (
       role: msg.role === Role.USER ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));
-
-  const langNames = { ko: 'Korean', en: 'English', es: 'Spanish', fr: 'French' };
-  let systemInstruction = `You are a professional AI assistant. Respond in ${langNames[language]}. 
-  Use Markdown for beautiful formatting.
-  
-  [TOOLS GUIDELINE]
-  - Use 'getCurrentWeather' for weather queries.
-  - Use 'getCurrentTime' for date/time queries.
-  - Report time in KST (Korea Standard Time) using a format appropriate for ${langNames[language]}.`;
-  
-  if (webContent) {
-    systemInstruction += `\n\n[CONTENT TO ANALYZE]\n${webContent}`;
-  }
 
   let userParts: Part[] = [{ text: prompt }];
   if (attachment && attachment.data && attachment.data.trim() !== "") {
@@ -171,94 +119,63 @@ export const streamChatResponse = async (
       userParts.push({ inlineData: { data: base64Data, mimeType: attachment.mimeType } });
     }
   }
-
   contents.push({ role: 'user', parts: userParts });
 
   const modelConfig = { 
     systemInstruction,
-    tools: [{ functionDeclarations: [weatherFunctionDeclaration, timeFunctionDeclaration] }]
+    tools: [{ googleSearch: {} }] 
   };
 
-  try {
+  await runWithFailover(async (ai) => {
     const result = await ai.models.generateContentStream({
       model: 'gemini-3-flash-preview',
       contents,
       config: modelConfig,
     });
     
-    let modelParts: Part[] = [];
-
     for await (const chunk of result) {
-      if (chunk.candidates?.[0]?.content?.parts) {
-        modelParts.push(...chunk.candidates[0].content.parts);
-      }
-
-      const calls = chunk.functionCalls;
-      if (calls && calls.length > 0) {
-        const functionResponseParts: Part[] = [];
-        for (const call of calls) {
-          if (call.name === 'getCurrentWeather') {
-            const location = call.args.location as string;
-            onChunk(language === 'ko' ? `🔍 ${location}의 날씨 정보를 확인 중입니다...` : `🔍 Checking weather for ${location}...`);
-            const weatherData = await fetchCurrentWeather(location, language);
-            functionResponseParts.push({
-              functionResponse: { name: call.name, response: { result: weatherData } },
-            });
-          } else if (call.name === 'getCurrentTime') {
-            onChunk(language === 'ko' ? `🕒 현재 시간을 확인 중입니다...` : `🕒 Checking current time...`);
-            const timeData = fetchCurrentTime(language);
-            functionResponseParts.push({
-              functionResponse: { name: call.name, response: { result: timeData } },
-            });
-          }
-        }
+      if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+        const chunks = chunk.candidates[0].groundingMetadata.groundingChunks;
+        const sources: GroundingSource[] = chunks
+          .filter(c => c.web)
+          .map(c => ({
+            title: c.web?.title || 'Untitled Source',
+            uri: c.web?.uri || ''
+          }))
+          .filter(s => s.uri !== '');
         
-        if (functionResponseParts.length > 0) {
-          onChunk("\n\n"); 
-          contents.push({ role: 'model', parts: modelParts });
-          contents.push({ role: 'user', parts: functionResponseParts });
-
-          const followUp = await ai.models.generateContentStream({
-            model: 'gemini-3-flash-preview',
-            contents,
-            config: modelConfig,
-          });
-          
-          for await (const finalChunk of followUp) {
-            if (finalChunk.text) onChunk(finalChunk.text);
-          }
+        if (sources.length > 0 && onMetadata) {
+          onMetadata(sources);
         }
-        return; 
       }
 
       if (chunk.text) {
         onChunk(chunk.text);
       }
     }
-  } catch (e: any) {
-    throw e;
-  }
+  });
 };
 
+/**
+ * Gemini TTS 생성
+ */
 export const generateSpeech = async (text: string): Promise<Uint8Array> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key is missing");
-
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: text.slice(0, 2000) }] }], // 500자 -> 2000자로 상향
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
+  return await runWithFailover(async (ai) => {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: text.slice(0, 2000) }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
+        },
       },
-    },
-  });
+    });
 
-  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-  if (!base64Audio) throw new Error("No audio data");
-  return decodeBase64(base64Audio);
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) throw new Error("No audio data");
+    return decodeBase64(base64Audio);
+  });
 };
 
 export const stopAudio = () => {

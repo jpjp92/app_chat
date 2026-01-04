@@ -16,7 +16,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // 하위 호환성을 위해 attachment가 없으면 image 사용
   const attachment = message.attachment || message.image;
 
   useEffect(() => {
@@ -50,7 +49,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
     
     setIsGenerating(true);
     try {
-      // 마크다운 문법 제거 후 최대 2000자까지 음성 합성
       const plainText = message.content.replace(/[#*`_~]/g, '').slice(0, 2000);
       const audioData = await generateSpeech(plainText);
       
@@ -75,6 +73,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
   };
 
   const getSourceIcon = () => {
+    if (message.groundingSources && message.groundingSources.length > 0) {
+      return { icon: 'fa-magnifying-glass', text: 'Google Search' };
+    }
     switch (message.sourceType) {
       case 'web': return { icon: 'fa-globe', text: 'Web Content' };
       case 'video': return { icon: 'fa-play-circle', text: 'Video Summary' };
@@ -128,8 +129,56 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
                 <div className="flex space-x-1.5 py-1.5"><div className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div><div className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div></div>
               )}
             </div>
+
+            {/* Google Search Grounding Sources 디자인 개선 */}
+            {!isUser && message.groundingSources && message.groundingSources.length > 0 && (
+              <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700/60">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center">
+                    <i className="fa-solid fa-square-rss mr-2 text-primary-500 animate-pulse"></i>
+                    Verified Sources
+                  </p>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-800/50">
+                    {message.groundingSources.length} Link{message.groundingSources.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {message.groundingSources.map((source, idx) => {
+                    const domain = new URL(source.uri).hostname.replace('www.', '');
+                    return (
+                      <a 
+                        key={idx} 
+                        href={source.uri} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        title={source.title}
+                        className="inline-flex items-center px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 hover:border-primary-400/50 hover:bg-white dark:hover:bg-slate-800 hover:shadow-md hover:shadow-primary-500/5 transition-all group/source"
+                      >
+                        <div className="w-5 h-5 mr-2.5 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700">
+                          <img 
+                            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} 
+                            alt="fav" 
+                            className="w-3.5 h-3.5 grayscale group-hover/source:grayscale-0 transition-all duration-300"
+                            onError={(e) => (e.currentTarget.src = 'https://www.google.com/favicon.ico')}
+                          />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[140px] group-hover/source:text-primary-600 dark:group-hover/source:text-primary-400">
+                            {source.title}
+                          </span>
+                          <span className="text-[8px] font-medium text-slate-400 truncate uppercase tracking-tighter">
+                            {domain}
+                          </span>
+                        </div>
+                        <i className="fa-solid fa-arrow-up-right-from-square text-[8px] ml-2 text-slate-300 opacity-0 group-hover/source:opacity-100 group-hover/source:translate-x-0.5 group-hover/source:-translate-y-0.5 transition-all"></i>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             
-            <div className={`flex items-center space-x-2 mt-2 sm:mt-2.5 ${isUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
+            <div className={`flex items-center space-x-2 mt-4 sm:mt-5 ${isUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
               <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] opacity-30">
                 {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
@@ -144,6 +193,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
               {message.content && (
                 <button 
                   onClick={handleCopy}
+                  title="Copy text"
                   className={`flex items-center justify-center w-6 h-6 rounded-full transition-all hover:bg-slate-100 dark:hover:bg-slate-700 ${isCopied ? 'text-green-500' : 'text-slate-400'}`}
                 >
                   <i className={`fa-solid ${isCopied ? 'fa-check' : 'fa-copy'} text-[10px]`}></i>
@@ -153,6 +203,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, userProfile }) => {
               {!isUser && message.content && (
                 <button 
                   onClick={handlePlayVoice}
+                  title="Listen to response"
                   className={`flex items-center justify-center w-6 h-6 rounded-full transition-all hover:bg-slate-100 dark:hover:bg-slate-700 ${isPlaying || isGenerating ? 'text-primary-500' : 'text-slate-400'}`}
                 >
                   <i className={`fa-solid ${isGenerating ? 'fa-spinner fa-spin' : isPlaying ? 'fa-circle-stop' : 'fa-volume-low'} text-[10px]`}></i>
