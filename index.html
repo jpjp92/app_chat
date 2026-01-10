@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,16 +11,19 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
     /* Custom Scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    .dark ::-webkit-scrollbar-thumb { background: #334155; }
-    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    .dark ::-webkit-scrollbar-thumb { background: #373738; }
+    ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
     
     .glass-effect {
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
+
+    .prose p { margin-bottom: 1.25em; line-height: 1.8; }
+    .prose strong { font-weight: 700; color: inherit; }
   </style>
   <script>
     window.process = { env: {} };
@@ -43,10 +47,8 @@
             },
             slate: {
               950: '#020617',
+              900: '#0f172a',
             }
-          },
-          animation: {
-            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
           }
         },
       },
@@ -65,7 +67,7 @@
 }
 </script>
 </head>
-<body class="bg-gray-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
+<body class="bg-white text-slate-900 dark:bg-[#131314] dark:text-[#e3e3e3] transition-colors duration-300">
   <div id="root"></div>
   <script type="module" src="./index.tsx"></script>
 </body>

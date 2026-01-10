@@ -7,21 +7,12 @@ let sharedAudioContext: AudioContext | null = null;
 
 /**
  * 채팅에 사용할 모델 우선순위 리스트
+ * 가이드라인에 따라 gemini-3-flash-preview와 gemini-flash-latest를 사용합니다.
  */
 const CHAT_MODELS = [
   'gemini-3-flash-preview',
-  'gemini-2.5-flash',
   'gemini-flash-latest'
 ];
-
-/**
- * 활성 가능한 API 키 목록 가져오기
- */
-const getApiKeys = () => {
-  const keys = [process.env.API_KEY, process.env.API_KEY2]
-    .filter(k => k && k !== "undefined" && k.trim() !== "");
-  return keys;
-};
 
 /**
  * Base64 디코딩 유틸리티
@@ -71,43 +62,40 @@ const isQuotaError = (error: any): boolean => {
 };
 
 /**
- * 페일오버를 지원하는 Gemini 실행 유틸리티 (키 로테이션 + 모델 폴백)
+ * 모델 폴백을 지원하는 Gemini 실행 유틸리티
+ * 가이드라인에 따라 API_KEY는 process.env.API_KEY에서만 가져옵니다.
  */
 async function runWithFailover<T>(
   modelCandidates: string[],
   operation: (ai: GoogleGenAI, model: string, isRetry: boolean) => Promise<T>
 ): Promise<T> {
-  const keys = getApiKeys();
-  if (keys.length === 0) throw new Error("API 키가 설정되지 않았습니다.");
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) throw new Error("API 키가 설정되지 않았습니다.");
 
   let lastError: any = null;
+  const ai = new GoogleGenAI({ apiKey });
 
-  // 모든 키에 대해 루프
-  for (let k = 0; k < keys.length; k++) {
-    const ai = new GoogleGenAI({ apiKey: keys[k]! });
+  // 후보 모델들을 순서대로 시도
+  for (let m = 0; m < modelCandidates.length; m++) {
+    const currentModel = modelCandidates[m];
+    const isRetry = m > 0;
 
-    // 각 키마다 후보 모델들을 순서대로 시도
-    for (let m = 0; m < modelCandidates.length; m++) {
-      const currentModel = modelCandidates[m];
-      const isRetry = k > 0 || m > 0;
-
-      try {
-        if (isRetry) {
-          console.warn(`[Gemini Service] Attempting with Key:${k+1}, Model:${currentModel}`);
-        }
-        return await operation(ai, currentModel, isRetry);
-      } catch (error: any) {
-        lastError = error;
-        
-        // 할당량 초과 에러인 경우에만 다음 모델이나 다음 키로 넘어감
-        if (isQuotaError(error)) {
-          console.error(`[Gemini Service] ${currentModel} on Key ${k+1} is exhausted.`);
-          continue; 
-        } else {
-          // 할당량 에러가 아닌 다른 심각한 에러(예: 인증 실패 등)는 즉시 중단하고 다음 키 시도
-          console.error(`[Gemini Service] Fatal error on ${currentModel}:`, error.message);
-          break; 
-        }
+    try {
+      if (isRetry) {
+        console.warn(`[Gemini Service] Attempting with fallback model: ${currentModel}`);
+      }
+      return await operation(ai, currentModel, isRetry);
+    } catch (error: any) {
+      lastError = error;
+      
+      // 할당량 초과 에러인 경우에만 다음 모델로 넘어감
+      if (isQuotaError(error)) {
+        console.error(`[Gemini Service] ${currentModel} is exhausted.`);
+        continue; 
+      } else {
+        // 다른 심각한 에러는 즉시 중단
+        console.error(`[Gemini Service] Fatal error on ${currentModel}:`, error.message);
+        break; 
       }
     }
   }
@@ -184,6 +172,7 @@ export const streamChatResponse = async (
     });
     
     for await (const chunk of result) {
+      // groundingMetadata에서 출처 정보를 추출합니다.
       if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
         const chunks = chunk.candidates[0].groundingMetadata.groundingChunks;
         const sources: GroundingSource[] = chunks
@@ -199,6 +188,7 @@ export const streamChatResponse = async (
         }
       }
 
+      // response.text는 메서드가 아닌 속성입니다.
       if (chunk.text) {
         onChunk(chunk.text, false);
       }
@@ -210,7 +200,7 @@ export const streamChatResponse = async (
  * Gemini TTS 생성
  */
 export const generateSpeech = async (text: string): Promise<Uint8Array> => {
-  const ttsModels = ["gemini-2.5-flash-preview-tts", "gemini-2.5-flash-lite-latest"];
+  const ttsModels = ["gemini-2.5-flash-preview-tts", "gemini-flash-lite-latest"];
   
   return await runWithFailover(ttsModels, async (ai, model) => {
     const response = await ai.models.generateContent({
