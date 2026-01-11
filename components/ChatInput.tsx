@@ -23,8 +23,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
     if (textarea) {
       textarea.style.height = 'auto'; 
       const newHeight = Math.min(textarea.scrollHeight, 200);
-      // 모바일 최적화: 최소 높이를 더 낮춤 (40px)
-      const minHeight = window.innerWidth < 640 ? 40 : 52;
+      // 극단적인 높이 최적화: 모바일 36px, 데스크톱 48px
+      const minHeight = window.innerWidth < 640 ? 36 : 48;
       textarea.style.height = `${Math.max(newHeight, minHeight)}px`;
     }
   };
@@ -77,7 +77,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
       setInput('');
       setSelectedAttachment(null);
       finalTranscriptRef.current = '';
-      if (textareaRef.current) textareaRef.current.style.height = window.innerWidth < 640 ? '40px' : '52px';
+      if (textareaRef.current) textareaRef.current.style.height = window.innerWidth < 640 ? '36px' : '48px';
     }
   };
 
@@ -100,16 +100,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
   return (
     <div className="max-w-4xl mx-auto px-2 sm:px-6 relative">
       {selectedAttachment && (
-        <div className="absolute bottom-full left-4 sm:left-6 mb-3 animate-in slide-in-from-bottom-2">
+        <div className="absolute bottom-full left-4 sm:left-6 mb-2 animate-in slide-in-from-bottom-2">
           <div className="relative group">
             <div className="overflow-hidden rounded-xl border-2 border-white dark:border-[#1e1e1f] shadow-xl">
-              <img src={selectedAttachment.data} alt="Upload" className="h-16 w-16 sm:h-24 sm:w-24 object-cover" />
+              <img src={selectedAttachment.data} alt="Upload" className="h-14 w-14 sm:h-20 sm:w-20 object-cover" />
             </div>
             <button 
               onClick={() => setSelectedAttachment(null)} 
-              className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+              className="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
             >
-              <i className="fa-solid fa-xmark text-[10px]"></i>
+              <i className="fa-solid fa-xmark text-[8px]"></i>
             </button>
           </div>
         </div>
@@ -117,17 +117,17 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
       
       <form 
         onSubmit={handleSubmit} 
-        className="relative flex items-end bg-[#f0f4f9] dark:bg-[#1e1e1f] p-0.5 sm:p-2 rounded-[22px] sm:rounded-[36px] transition-all focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:bg-white dark:focus-within:bg-[#1e1e1f] border border-transparent dark:border-white/5 shadow-sm"
+        className="relative flex items-end bg-[#f0f4f9] dark:bg-[#1e1e1f] p-0.5 sm:p-1.5 rounded-[20px] sm:rounded-[32px] transition-all focus-within:ring-2 focus-within:ring-primary-500/20 focus-within:bg-white dark:focus-within:bg-[#1e1e1f] border border-transparent dark:border-white/5 shadow-sm"
       >
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,application/pdf" className="hidden" />
         
         <button 
           type="button" 
           onClick={() => fileInputRef.current?.click()} 
-          className="flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded-full transition-colors"
+          className="flex-shrink-0 w-8 h-8 sm:w-11 sm:h-11 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded-full transition-colors"
           title="이미지 또는 파일 첨부"
         >
-          <i className="fa-solid fa-paperclip text-base sm:text-xl"></i>
+          <i className="fa-solid fa-paperclip text-sm sm:text-lg"></i>
         </button>
 
         <textarea
@@ -138,35 +138,35 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
           placeholder="Ask anything"
           rows={1}
           disabled={disabled}
-          className="flex-1 bg-transparent px-2 sm:px-3 py-2 sm:py-3.5 outline-none resize-none text-slate-800 dark:text-[#e3e3e3] placeholder-slate-500 dark:placeholder-slate-400 min-h-[40px] sm:min-h-[52px] max-h-[160px] sm:max-h-[200px] leading-relaxed block overflow-y-auto text-[14px] sm:text-[16px] font-medium"
+          className="flex-1 bg-transparent px-2 sm:px-3 py-1.5 sm:py-2.5 outline-none resize-none text-slate-800 dark:text-[#e3e3e3] placeholder-slate-500 dark:placeholder-slate-400 min-h-[36px] sm:min-h-[48px] max-h-[140px] sm:max-h-[180px] leading-relaxed block overflow-y-auto text-[14px] sm:text-[16px] font-medium"
         />
 
-        <div className="flex items-center space-x-0.5 sm:space-x-1 pr-1 self-center sm:self-end sm:mb-1">
+        <div className="flex items-center space-x-0.5 sm:space-x-1 pr-1 self-center">
           {isSTTSupported && (
             <button
               type="button"
               onClick={toggleListening}
-              className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all ${
+              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all ${
                 isListening 
                   ? 'bg-red-500 text-white shadow-lg animate-pulse' 
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/5'
               }`}
               title="음성 인식"
             >
-              <i className={`fa-solid ${isListening ? 'fa-microphone' : 'fa-microphone-lines'} text-sm sm:text-lg`}></i>
+              <i className={`fa-solid ${isListening ? 'fa-microphone' : 'fa-microphone-lines'} text-xs sm:text-base`}></i>
             </button>
           )}
 
           <button
             type="submit"
             disabled={(!input.trim() && !selectedAttachment) || disabled}
-            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all ${
+            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all ${
               (!input.trim() && !selectedAttachment) || disabled 
                 ? 'text-slate-300 dark:text-slate-700' 
                 : 'text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-500/10'
             }`}
           >
-            <i className="fa-solid fa-arrow-up text-base sm:text-xl"></i>
+            <i className="fa-solid fa-arrow-up text-sm sm:text-lg"></i>
           </button>
         </div>
       </form>

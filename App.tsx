@@ -36,7 +36,7 @@ const App: React.FC = () => {
     es: {
       title: "¡Hola!",
       subtitle: "¿De qué hablamos hoy?",
-      desc: "Haz preguntas o busca en tiempo real."
+      desc: "Haz preguntas or busca en tiempo real."
     },
     fr: {
       title: "Bonjour!",
@@ -205,15 +205,15 @@ const App: React.FC = () => {
           onMenuClick={() => setIsSidebarOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto px-4 py-4 sm:py-8 sm:px-10 lg:px-20 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto px-4 py-2 sm:py-6 sm:px-10 lg:px-20 custom-scrollbar">
           <div className="max-w-3xl mx-auto flex flex-col h-full">
             {currentSession?.messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center flex-1 py-8 sm:py-20 animate-in fade-in zoom-in-95 duration-1000">
+              <div className="flex flex-col items-center justify-center flex-1 py-6 sm:py-20 animate-in fade-in zoom-in-95 duration-1000">
                 <div className="text-center">
-                  <h1 className="text-4xl sm:text-6xl font-medium tracking-tight bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent mb-4 sm:mb-6">
+                  <h1 className="text-4xl sm:text-6xl font-medium tracking-tight bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent mb-3 sm:mb-6">
                     {currentWelcome.title}
                   </h1>
-                  <p className="text-slate-500 dark:text-slate-400 text-lg sm:text-2xl font-medium px-4">
+                  <p className="text-slate-500 dark:text-slate-400 text-base sm:text-2xl font-medium px-4">
                     {currentWelcome.subtitle}
                   </p>
                 </div>
@@ -231,22 +231,22 @@ const App: React.FC = () => {
             </div>
             
             {isTyping && currentSession?.messages.length > 0 && currentSession.messages[currentSession.messages.length - 1].role !== Role.MODEL && (
-              <div className="flex items-center gap-3 mt-6 animate-pulse">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-[#1e1e1f] flex items-center justify-center">
+              <div className="flex items-center gap-2 mt-4 animate-pulse">
+                <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-[#1e1e1f] flex items-center justify-center">
                   <i className="fa-solid fa-sparkles text-primary-500 text-[8px] sm:text-[10px]"></i>
                 </div>
-                <span className="text-[11px] sm:text-[12px] font-medium text-slate-400">답변 준비 중...</span>
+                <span className="text-[10px] sm:text-[12px] font-medium text-slate-400">...</span>
               </div>
             )}
             
-            <div ref={messagesEndRef} className="h-10 sm:h-20" />
+            <div ref={messagesEndRef} className="h-6 sm:h-12" />
           </div>
         </main>
 
-        <footer className="p-2 sm:p-8 pt-0">
+        <footer className="p-1 sm:p-6 pt-0">
           <ChatInput onSend={handleSendMessage} disabled={isTyping} language={language} />
-          <div className="mt-2 sm:mt-4 text-center">
-            <p className="text-[10px] sm:text-[12px] text-slate-400 dark:text-slate-500 px-4">
+          <div className="mt-1 sm:mt-3 text-center">
+            <p className="text-[9px] sm:text-[12px] text-slate-400 dark:text-slate-500 px-4 opacity-80">
               Gemini는 실수할 수 있습니다. 중요한 정보는 항상 확인하세요.
             </p>
           </div>
