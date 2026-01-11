@@ -15,9 +15,10 @@ const CHAT_MODELS = [
 
 /**
  * 요약 전용 Gemma 3 모델 및 사용자 정의 프롬프트
+ * Gemma 3는 한국어 요약에 탁월한 성능을 보입니다.
  */
 export const SUMMARY_MODEL = 'gemma-3-4b-it';
-export const TITLE_PROMPT = "다음 대화 내용을 분석하여 10자 이내의 아주 간결하고 명확한 채팅 제목을 만들어주세요. 따옴표나 마침표 없이 제목 텍스트만 출력하세요.";
+export const TITLE_PROMPT = "다음 대화 내용을 분석하여 10자 이내의 아주 간결하고 명확한 채팅 제목을 만들어주세요. 불필요한 수식어나 따옴표, 마침표 없이 제목 텍스트만 단답형으로 출력하세요.";
 
 /**
  * Base64 디코딩 유틸리티
@@ -107,6 +108,7 @@ export const summarizeConversation = async (history: Message[], language: Langua
     // 최근 대화 위주로 요약 데이터 생성
     const chatHistoryText = history.slice(-6).map(m => `${m.role === Role.USER ? 'User' : 'Assistant'}: ${m.content}`).join("\n");
     
+    // Gemma 3 API 호출 (Gemini 모델 호출 방식과 동일)
     const response = await ai.models.generateContent({
       model: SUMMARY_MODEL,
       contents: [{
@@ -120,15 +122,16 @@ export const summarizeConversation = async (history: Message[], language: Langua
       }
     });
 
-    return response.text?.trim() || "New Chat";
+    const result = response.text?.trim().replace(/["']/g, "");
+    return result || "New Chat";
   } catch (error) {
     console.warn("[Gemma 3 Summary Failed, using Fallback]", error);
     try {
-      // Gemma 3 실패 시 Flash 모델로 폴백하여 안정성 확보
+      // Gemma 3 실패 시 Flash 모델로 폴백
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: [{ parts: [{ text: `Summarize this chat into a 3-word title in ${language}: ${history[0].content}` }] }]
+        contents: [{ parts: [{ text: `Summarize this chat into a very short title (max 10 chars) in ${language}: ${history[0].content}` }] }]
       });
       return response.text?.replace(/["']/g, "").trim() || "New Chat";
     } catch (e) {

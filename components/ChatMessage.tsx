@@ -72,14 +72,14 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
     p: ({ ...props }) => <p className="mb-4 last:mb-0 leading-relaxed text-[15px] sm:text-[16px]" {...props} />,
     ul: ({ ...props }) => <ul className="list-disc ml-5 mb-4 space-y-2" {...props} />,
     li: ({ ...props }) => <li className="pl-1 text-slate-700 dark:text-slate-300" {...props} />,
-    // 인라인 코드와 코드 블록 내부 코드를 구분하여 배경색 처리
+    // 인라인 코드와 코드 블록 내부 코드를 확실히 구분
     code: ({ children, className, ...props }: any) => {
       const isInline = !className || !className.includes('language-');
       return (
         <code 
           className={isInline 
             ? "bg-slate-100 dark:bg-[#2a2a2c] px-1.5 py-0.5 rounded text-[13px] font-mono text-primary-600 dark:text-primary-400 border border-slate-200 dark:border-white/5"
-            : "bg-transparent p-0 border-none text-inherit font-mono shadow-none"
+            : "bg-transparent p-0 border-none text-inherit font-mono shadow-none !bg-none"
           } 
           {...props}
         >
@@ -87,7 +87,7 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
         </code>
       );
     },
-    // 코드 블록 전체 스타일
+    // 코드 블록 전체 스타일: 다크 톤으로 통일
     pre: ({ children }: any) => (
       <pre className="bg-[#0d1117] text-[#e6edf3] p-4 rounded-xl overflow-x-auto my-4 text-[13px] sm:text-[14px] font-mono border border-slate-200 dark:border-white/10 shadow-lg leading-normal">
         {children}
@@ -104,6 +104,44 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
     tr: ({ children }: any) => <tr className="group border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">{children}</tr>,
   };
 
+  const renderAttachment = () => {
+    if (!attachment) return null;
+
+    const isImage = attachment.mimeType.startsWith('image/');
+    const isPDF = attachment.mimeType === 'application/pdf';
+
+    if (isImage) {
+      return (
+        <div className={`mb-3 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm ${isUser ? 'origin-right' : 'origin-left'}`}>
+          <img src={attachment.data} alt="Attachment" className="max-w-[280px] sm:max-w-[400px] h-auto object-cover" />
+        </div>
+      );
+    }
+
+    if (isPDF) {
+      return (
+        <div className={`mb-3 flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 flex-shrink-0">
+            <i className="fa-solid fa-file-pdf text-xl"></i>
+          </div>
+          <div className={`flex flex-col min-w-0 ${isUser ? 'items-end' : 'items-start'}`}>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">
+              {attachment.fileName || 'document.pdf'}
+            </span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">PDF Document</span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-3 flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+        <i className="fa-solid fa-file text-slate-400 flex-shrink-0"></i>
+        <span className="text-sm text-slate-600 dark:text-slate-300 truncate">{attachment.fileName || 'Attachment'}</span>
+      </div>
+    );
+  };
+
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-8 group animate-in fade-in duration-500`}>
       <div className={`flex max-w-[98%] sm:max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-4`}>
@@ -118,11 +156,7 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
         
         <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} min-w-0 flex-1`}>
           
-          {attachment && (
-            <div className={`mb-3 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 ${isUser ? 'origin-right' : 'origin-left'}`}>
-              <img src={attachment.data} alt="Attachment" className="max-w-[280px] h-auto object-cover" />
-            </div>
-          )}
+          {renderAttachment()}
           
           <div className={`relative transition-all duration-300 ${
             isUser 

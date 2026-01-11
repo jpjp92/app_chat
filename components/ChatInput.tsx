@@ -23,7 +23,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
     if (textarea) {
       textarea.style.height = 'auto'; 
       const newHeight = Math.min(textarea.scrollHeight, 200);
-      // 극단적인 높이 최적화: 모바일 36px, 데스크톱 48px
       const minHeight = window.innerWidth < 640 ? 36 : 48;
       textarea.style.height = `${Math.max(newHeight, minHeight)}px`;
     }
@@ -92,28 +91,54 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setSelectedAttachment({ data: reader.result as string, mimeType: file.type, fileName: file.name });
+      reader.onloadend = () => {
+        setSelectedAttachment({ 
+          data: reader.result as string, 
+          mimeType: file.type, 
+          fileName: file.name 
+        });
+      };
       reader.readAsDataURL(file);
+      // 같은 파일을 다시 올릴 수 있도록 초기화
+      e.target.value = '';
     }
+  };
+
+  const renderPreview = () => {
+    if (!selectedAttachment) return null;
+
+    const isPDF = selectedAttachment.mimeType === 'application/pdf';
+    
+    return (
+      <div className="absolute bottom-full left-4 sm:left-6 mb-3 animate-in slide-in-from-bottom-2 duration-300">
+        <div className="relative group">
+          <div className="overflow-hidden rounded-2xl border-2 border-white dark:border-[#2f2f2f] shadow-2xl bg-white dark:bg-[#1e1e1f]">
+            {isPDF ? (
+              <div className="h-16 w-32 sm:h-20 sm:w-40 flex flex-col items-center justify-center p-2 gap-1 bg-red-50 dark:bg-red-500/5">
+                <i className="fa-solid fa-file-pdf text-red-500 text-xl sm:text-2xl"></i>
+                <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate w-full text-center px-1">
+                  {selectedAttachment.fileName || 'document.pdf'}
+                </span>
+              </div>
+            ) : (
+              <img src={selectedAttachment.data} alt="Upload" className="h-16 w-16 sm:h-20 sm:w-20 object-cover" />
+            )}
+          </div>
+          <button 
+            type="button"
+            onClick={() => setSelectedAttachment(null)} 
+            className="absolute -top-2.5 -right-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 w-6 h-6 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all z-10"
+          >
+            <i className="fa-solid fa-xmark text-[10px]"></i>
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="max-w-4xl mx-auto px-2 sm:px-6 relative">
-      {selectedAttachment && (
-        <div className="absolute bottom-full left-4 sm:left-6 mb-2 animate-in slide-in-from-bottom-2">
-          <div className="relative group">
-            <div className="overflow-hidden rounded-xl border-2 border-white dark:border-[#1e1e1f] shadow-xl">
-              <img src={selectedAttachment.data} alt="Upload" className="h-14 w-14 sm:h-20 sm:w-20 object-cover" />
-            </div>
-            <button 
-              onClick={() => setSelectedAttachment(null)} 
-              className="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-            >
-              <i className="fa-solid fa-xmark text-[8px]"></i>
-            </button>
-          </div>
-        </div>
-      )}
+      {renderPreview()}
       
       <form 
         onSubmit={handleSubmit} 
