@@ -4,7 +4,7 @@ import Header from './components/Header';
 import ChatSidebar from './components/ChatSidebar';
 import ChatMessage from './components/ChatMessage';
 import ChatInput from './components/ChatInput';
-import { streamChatResponse } from './services/geminiService';
+import { streamChatResponse, summarizeConversation } from './services/geminiService';
 import { Role, Message, ChatSession, UserProfile, Language, GroundingSource, MessageAttachment } from './types';
 
 const App: React.FC = () => {
@@ -23,26 +23,10 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const welcomeMessages = {
-    ko: {
-      title: "반가워요!",
-      subtitle: "오늘은 어떤 이야기를 나눌까요?",
-      desc: "궁금한 질문이나 실시간 검색을 해보세요."
-    },
-    en: {
-      title: "Hello there!",
-      subtitle: "What's on your mind?",
-      desc: "Ask questions or search in real-time."
-    },
-    es: {
-      title: "¡Hola!",
-      subtitle: "¿De qué hablamos hoy?",
-      desc: "Haz preguntas or busca en tiempo real."
-    },
-    fr: {
-      title: "Bonjour!",
-      subtitle: "De quoi parlons-nous ?",
-      desc: "Posez des questions ou cherchez en direct."
-    }
+    ko: { title: "반가워요!", subtitle: "오늘은 어떤 이야기를 나눌까요?", desc: "궁금한 질문이나 실시간 검색을 해보세요." },
+    en: { title: "Hello there!", subtitle: "What's on your mind?", desc: "Ask questions or search in real-time." },
+    es: { title: "¡Hola!", subtitle: "¿De qué hablamos hoy?", desc: "Haz preguntas or busca en tempo real." },
+    fr: { title: "Bonjour!", subtitle: "De quoi parlons-nous ?", desc: "Posez des questions ou cherchez en direct." }
   };
 
   useEffect(() => {
@@ -56,9 +40,7 @@ const App: React.FC = () => {
     }
     
     const savedProfile = localStorage.getItem('gemini_user_profile');
-    if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile));
-    }
+    if (savedProfile) setUserProfile(JSON.parse(savedProfile));
     
     const savedLang = localStorage.getItem('gemini_language') as Language;
     if (savedLang) setLanguage(savedLang);
@@ -112,6 +94,17 @@ const App: React.FC = () => {
 
   const currentSession = sessions.find(s => s.id === currentSessionId);
 
+  const triggerAutoTitle = async (sessionId: string, currentHistory: Message[]) => {
+    try {
+      const newTitle = await summarizeConversation(currentHistory, language);
+      if (newTitle && newTitle !== "New Chat") {
+        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle } : s));
+      }
+    } catch (err) {
+      console.warn("Title auto-update failed", err);
+    }
+  };
+
   const handleSendMessage = async (content: string, attachment?: MessageAttachment) => {
     if (!currentSessionId || (!content.trim() && !attachment)) return;
 
@@ -123,11 +116,14 @@ const App: React.FC = () => {
       attachment
     };
 
+    let latestHistory: Message[] = [];
+
     setSessions(prev => prev.map(s => {
       if (s.id === currentSessionId) {
-        const updatedMessages = [...s.messages, userMessage];
-        const title = s.messages.length === 0 ? content.slice(0, 30) || 'New Chat' : s.title;
-        return { ...s, messages: updatedMessages, title };
+        latestHistory = [...s.messages, userMessage];
+        const isFirstMessage = s.messages.length === 0;
+        const tempTitle = isFirstMessage ? (content.slice(0, 20) || 'New Chat') : s.title;
+        return { ...s, messages: latestHistory, title: tempTitle };
       }
       return s;
     }));
@@ -174,6 +170,13 @@ const App: React.FC = () => {
           }));
         }
       );
+
+      // 제목 요약 트리거
+      const finalHistory = [...latestHistory, { id: modelMessageId, role: Role.MODEL, content: modelResponse, timestamp: Date.now() }];
+      if (finalHistory.length >= 2 && finalHistory.length <= 6) {
+        triggerAutoTitle(currentSessionId, finalHistory);
+      }
+
     } catch (error: any) {
       setLoadingStatus(error.message);
       setTimeout(() => setLoadingStatus(null), 5000);
@@ -199,21 +202,17 @@ const App: React.FC = () => {
       />
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <Header 
-          userProfile={userProfile} 
-          onUpdateProfile={handleUpdateProfile}
-          onMenuClick={() => setIsSidebarOpen(true)}
-        />
+        <Header userProfile={userProfile} onUpdateProfile={handleUpdateProfile} onMenuClick={() => setIsSidebarOpen(true)} />
 
-        <main className="flex-1 overflow-y-auto px-4 py-2 sm:py-6 sm:px-10 lg:px-20 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto px-2 sm:px-10 lg:px-20 custom-scrollbar pt-2 sm:pt-4">
           <div className="max-w-3xl mx-auto flex flex-col h-full">
             {currentSession?.messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center flex-1 py-6 sm:py-20 animate-in fade-in zoom-in-95 duration-1000">
+              <div className="flex flex-col items-center justify-center flex-1 py-4 sm:py-20 animate-in fade-in zoom-in-95 duration-1000">
                 <div className="text-center">
-                  <h1 className="text-4xl sm:text-6xl font-medium tracking-tight bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent mb-3 sm:mb-6">
+                  <h1 className="text-4xl sm:text-6xl font-medium tracking-tight bg-gradient-to-r from-blue-500 via-purple-500 to-red-500 bg-clip-text text-transparent mb-2 sm:mb-6">
                     {currentWelcome.title}
                   </h1>
-                  <p className="text-slate-500 dark:text-slate-400 text-base sm:text-2xl font-medium px-4">
+                  <p className="text-slate-400 dark:text-slate-500 text-sm sm:text-2xl font-medium px-4">
                     {currentWelcome.subtitle}
                   </p>
                 </div>
@@ -222,32 +221,35 @@ const App: React.FC = () => {
             
             <div className="flex flex-col space-y-2">
               {currentSession?.messages.map((msg) => (
-                <ChatMessage 
-                  key={msg.id} 
-                  message={msg} 
-                  userProfile={userProfile} 
-                />
+                <ChatMessage key={msg.id} message={msg} userProfile={userProfile} />
               ))}
             </div>
             
-            {isTyping && currentSession?.messages.length > 0 && currentSession.messages[currentSession.messages.length - 1].role !== Role.MODEL && (
-              <div className="flex items-center gap-2 mt-4 animate-pulse">
-                <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-full bg-slate-100 dark:bg-[#1e1e1f] flex items-center justify-center">
-                  <i className="fa-solid fa-sparkles text-primary-500 text-[8px] sm:text-[10px]"></i>
+            {/* 인터랙티브 점 애니메이션 복구 */}
+            {isTyping && currentSession?.messages.length > 0 && currentSession.messages[currentSession.messages.length - 1].role === Role.USER && (
+              <div className="flex items-start gap-4 mt-4 pl-1">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 via-primary-500 to-violet-500 flex items-center justify-center shadow-lg shadow-primary-500/10">
+                    <i className="fa-solid fa-sparkles text-white text-[10px]"></i>
+                  </div>
                 </div>
-                <span className="text-[10px] sm:text-[12px] font-medium text-slate-400">...</span>
+                <div className="flex items-center gap-1.5 py-4">
+                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full animate-bounce [animation-duration:0.8s]"></div>
+                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.2s]"></div>
+                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.4s]"></div>
+                </div>
               </div>
             )}
             
-            <div ref={messagesEndRef} className="h-6 sm:h-12" />
+            <div ref={messagesEndRef} className="h-4 sm:h-10" />
           </div>
         </main>
 
-        <footer className="p-1 sm:p-6 pt-0">
+        <footer className="p-1 sm:p-4 pt-0">
           <ChatInput onSend={handleSendMessage} disabled={isTyping} language={language} />
-          <div className="mt-1 sm:mt-3 text-center">
-            <p className="text-[9px] sm:text-[12px] text-slate-400 dark:text-slate-500 px-4 opacity-80">
-              Gemini는 실수할 수 있습니다. 중요한 정보는 항상 확인하세요.
+          <div className="mt-1 text-center">
+            <p className="text-[8px] sm:text-[11px] text-slate-400 dark:text-slate-500 px-4 opacity-70">
+              Gemini는 실수할 수 있습니다.
             </p>
           </div>
         </footer>

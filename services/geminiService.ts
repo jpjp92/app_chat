@@ -6,13 +6,18 @@ let currentAudioSource: AudioBufferSourceNode | null = null;
 let sharedAudioContext: AudioContext | null = null;
 
 /**
- * 채팅에 사용할 모델 우선순위 리스트
- * 가이드라인에 따라 gemini-3-flash-preview와 gemini-flash-latest를 사용합니다.
+ * 메인 채팅 모델
  */
 const CHAT_MODELS = [
   'gemini-3-flash-preview',
   'gemini-flash-latest'
 ];
+
+/**
+ * 요약 전용 Gemma 3 모델 및 사용자 정의 프롬프트
+ */
+export const SUMMARY_MODEL = 'gemma-3-4b-it';
+export const TITLE_PROMPT = "다음 대화 내용을 분석하여 10자 이내의 아주 간결하고 명확한 채팅 제목을 만들어주세요. 따옴표나 마침표 없이 제목 텍스트만 출력하세요.";
 
 /**
  * Base64 디코딩 유틸리티
@@ -53,18 +58,11 @@ async function decodeAudioData(
   return buffer;
 }
 
-/**
- * 에러가 할당량 초과(429) 관련인지 확인
- */
 const isQuotaError = (error: any): boolean => {
   const msg = (error.message || "").toLowerCase();
   return msg.includes("quota") || msg.includes("429") || msg.includes("resource_exhausted");
 };
 
-/**
- * 모델 폴백을 지원하는 Gemini 실행 유틸리티
- * 가이드라인에 따라 API_KEY는 process.env.API_KEY에서만 가져옵니다.
- */
 async function runWithFailover<T>(
   modelCandidates: string[],
   operation: (ai: GoogleGenAI, model: string, isRetry: boolean) => Promise<T>
@@ -75,32 +73,19 @@ async function runWithFailover<T>(
   let lastError: any = null;
   const ai = new GoogleGenAI({ apiKey });
 
-  // 후보 모델들을 순서대로 시도
   for (let m = 0; m < modelCandidates.length; m++) {
     const currentModel = modelCandidates[m];
     const isRetry = m > 0;
 
     try {
-      if (isRetry) {
-        console.warn(`[Gemini Service] Attempting with fallback model: ${currentModel}`);
-      }
       return await operation(ai, currentModel, isRetry);
     } catch (error: any) {
       lastError = error;
-      
-      // 할당량 초과 에러인 경우에만 다음 모델로 넘어감
-      if (isQuotaError(error)) {
-        console.error(`[Gemini Service] ${currentModel} is exhausted.`);
-        continue; 
-      } else {
-        // 다른 심각한 에러는 즉시 중단
-        console.error(`[Gemini Service] Fatal error on ${currentModel}:`, error.message);
-        break; 
-      }
+      if (isQuotaError(error)) continue; 
+      break; 
     }
   }
 
-  // 모든 시도가 실패했을 때 에러 메시지 정리
   let finalMessage = lastError?.message || JSON.stringify(lastError);
   try {
     const parsed = JSON.parse(finalMessage);
@@ -109,6 +94,48 @@ async function runWithFailover<T>(
   
   throw new Error(finalMessage);
 }
+
+/**
+ * Gemma 3를 이용한 대화 제목 요약
+ */
+export const summarizeConversation = async (history: Message[], language: Language = 'ko'): Promise<string> => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) return "New Chat";
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    // 최근 대화 위주로 요약 데이터 생성
+    const chatHistoryText = history.slice(-6).map(m => `${m.role === Role.USER ? 'User' : 'Assistant'}: ${m.content}`).join("\n");
+    
+    const response = await ai.models.generateContent({
+      model: SUMMARY_MODEL,
+      contents: [{
+        parts: [{
+          text: `${TITLE_PROMPT}\n\n[대화 내용]\n${chatHistoryText}\n\n제목:`
+        }]
+      }],
+      config: {
+        temperature: 0.3,
+        maxOutputTokens: 25
+      }
+    });
+
+    return response.text?.trim() || "New Chat";
+  } catch (error) {
+    console.warn("[Gemma 3 Summary Failed, using Fallback]", error);
+    try {
+      // Gemma 3 실패 시 Flash 모델로 폴백하여 안정성 확보
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: [{ parts: [{ text: `Summarize this chat into a 3-word title in ${language}: ${history[0].content}` }] }]
+      });
+      return response.text?.replace(/["']/g, "").trim() || "New Chat";
+    } catch (e) {
+      return history[0]?.content.slice(0, 15) + "..." || "New Chat";
+    }
+  }
+};
 
 /**
  * Gemini 채팅 스트리밍 응답
@@ -172,7 +199,6 @@ export const streamChatResponse = async (
     });
     
     for await (const chunk of result) {
-      // groundingMetadata에서 출처 정보를 추출합니다.
       if (chunk.candidates?.[0]?.groundingMetadata?.groundingChunks) {
         const chunks = chunk.candidates[0].groundingMetadata.groundingChunks;
         const sources: GroundingSource[] = chunks
@@ -188,7 +214,6 @@ export const streamChatResponse = async (
         }
       }
 
-      // response.text는 메서드가 아닌 속성입니다.
       if (chunk.text) {
         onChunk(chunk.text, false);
       }

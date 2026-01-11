@@ -72,9 +72,27 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
     p: ({ ...props }) => <p className="mb-4 last:mb-0 leading-relaxed text-[15px] sm:text-[16px]" {...props} />,
     ul: ({ ...props }) => <ul className="list-disc ml-5 mb-4 space-y-2" {...props} />,
     li: ({ ...props }) => <li className="pl-1 text-slate-700 dark:text-slate-300" {...props} />,
-    code: ({ children }: any) => <code className="bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 rounded text-[13px] font-mono text-primary-600 dark:text-primary-400">{children}</code>,
-    pre: ({ children }: any) => <pre className="bg-slate-900 text-slate-100 p-4 rounded-2xl overflow-x-auto my-4 text-sm font-mono border border-white/5 shadow-xl">{children}</pre>,
-    // 표 스타일 커스텀 시작
+    // 인라인 코드와 코드 블록 내부 코드를 구분하여 배경색 처리
+    code: ({ children, className, ...props }: any) => {
+      const isInline = !className || !className.includes('language-');
+      return (
+        <code 
+          className={isInline 
+            ? "bg-slate-100 dark:bg-[#2a2a2c] px-1.5 py-0.5 rounded text-[13px] font-mono text-primary-600 dark:text-primary-400 border border-slate-200 dark:border-white/5"
+            : "bg-transparent p-0 border-none text-inherit font-mono shadow-none"
+          } 
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    },
+    // 코드 블록 전체 스타일
+    pre: ({ children }: any) => (
+      <pre className="bg-[#0d1117] text-[#e6edf3] p-4 rounded-xl overflow-x-auto my-4 text-[13px] sm:text-[14px] font-mono border border-slate-200 dark:border-white/10 shadow-lg leading-normal">
+        {children}
+      </pre>
+    ),
     table: ({ children }: any) => (
       <div className="my-6 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
         <table className="w-full text-sm text-left border-collapse">{children}</table>
@@ -90,7 +108,6 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-8 group animate-in fade-in duration-500`}>
       <div className={`flex max-w-[98%] sm:max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-4`}>
         
-        {/* Avatar Section */}
         {!isUser && (
           <div className="flex-shrink-0 mt-1">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 via-primary-500 to-violet-500 flex items-center justify-center shadow-lg shadow-primary-500/10">
@@ -101,14 +118,12 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
         
         <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} min-w-0 flex-1`}>
           
-          {/* Attachment Preview */}
           {attachment && (
             <div className={`mb-3 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 ${isUser ? 'origin-right' : 'origin-left'}`}>
               <img src={attachment.data} alt="Attachment" className="max-w-[280px] h-auto object-cover" />
             </div>
           )}
           
-          {/* Message Bubble/Content */}
           <div className={`relative transition-all duration-300 ${
             isUser 
               ? 'px-5 py-3 rounded-[24px] bg-[#eff1f1] dark:bg-[#2f2f2f] text-slate-800 dark:text-slate-100 shadow-sm' 
@@ -116,21 +131,20 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
           }`}>
             <div className="font-normal leading-relaxed">
               {message.content ? (
-                <div className="prose dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-slate-900">
+                <div className="prose dark:prose-invert max-w-none prose-p:leading-relaxed">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents as any}>
                     {message.content}
                   </ReactMarkdown>
                 </div>
               ) : (
-                <div className="flex space-x-1.5 py-2">
-                  <div className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-bounce"></div>
-                  <div className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                  <div className="w-1.5 h-1.5 bg-primary-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                <div className="flex space-x-1.5 py-4">
+                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full animate-bounce [animation-duration:0.8s]"></div>
+                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.2s]"></div>
+                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full animate-bounce [animation-duration:0.8s] [animation-delay:0.4s]"></div>
                 </div>
               )}
             </div>
 
-            {/* Action Buttons for Model */}
             {!isUser && message.content && (
               <div className="flex items-center gap-6 mt-6 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={handlePlayVoice} className={`text-slate-400 hover:text-primary-500 transition-colors flex items-center gap-2 text-[12px] font-medium ${isPlaying || isGenerating ? 'text-primary-500' : ''}`}>
@@ -143,7 +157,6 @@ const ChatMessage: React.FC<ChatMessageFullProps> = ({ message, userProfile }) =
             )}
           </div>
 
-          {/* Grounding Sources */}
           {!isUser && message.groundingSources && message.groundingSources.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-2 animate-in fade-in duration-700">
               {message.groundingSources.map((source, idx) => (
