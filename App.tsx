@@ -32,9 +32,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const savedSessions = localStorage.getItem('gemini_chat_sessions');
     if (savedSessions) {
-      const parsed = JSON.parse(savedSessions);
-      setSessions(parsed);
-      if (parsed.length > 0) setCurrentSessionId(parsed[0].id);
+      try {
+        const parsed = JSON.parse(savedSessions);
+        setSessions(parsed);
+        if (parsed.length > 0) setCurrentSessionId(parsed[0].id);
+      } catch (e) {
+        console.error("Failed to parse sessions", e);
+        handleNewSession();
+      }
     } else {
       handleNewSession();
     }
@@ -46,9 +51,31 @@ const App: React.FC = () => {
     if (savedLang) setLanguage(savedLang);
   }, []);
 
+  // LocalStorage 저장 시 용량 초과 핸들링
   useEffect(() => {
-    localStorage.setItem('gemini_chat_sessions', JSON.stringify(sessions));
-  }, [sessions]);
+    if (sessions.length > 0) {
+      try {
+        localStorage.setItem('gemini_chat_sessions', JSON.stringify(sessions));
+      } catch (e) {
+        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.code === 22)) {
+          console.warn("LocalStorage quota exceeded, performing cleanup...");
+          // 용량 초과 시 세션 히스토리에서 첨부파일 데이터를 비우거나 오래된 세션을 제거하여 보존 시도
+          const lightSessions = sessions.map(s => ({
+            ...s,
+            messages: s.messages.map(m => m.attachment ? { ...m, attachment: { ...m.attachment, data: "" } } : m)
+          }));
+          try {
+            localStorage.setItem('gemini_chat_sessions', JSON.stringify(lightSessions.slice(0, 10)));
+            alert(language === 'ko' 
+              ? "저장 공간이 부족하여 오래된 파일이나 대화가 정리되었습니다." 
+              : "Storage almost full. Old attachments and sessions were cleared.");
+          } catch (innerE) {
+            localStorage.removeItem('gemini_chat_sessions');
+          }
+        }
+      }
+    }
+  }, [sessions, language]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -61,7 +88,7 @@ const App: React.FC = () => {
       messages: [],
       createdAt: Date.now()
     };
-    setSessions([newSession, ...sessions]);
+    setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
     setIsSidebarOpen(false);
   };
@@ -84,7 +111,9 @@ const App: React.FC = () => {
       avatarUrl: profile.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name[0])}&background=6366f1&color=fff&rounded=true&bold=true`
     };
     setUserProfile(finalProfile);
-    localStorage.setItem('gemini_user_profile', JSON.stringify(finalProfile));
+    try {
+      localStorage.setItem('gemini_user_profile', JSON.stringify(finalProfile));
+    } catch (e) {}
   };
 
   const handleLanguageChange = (lang: Language) => {
@@ -171,7 +200,6 @@ const App: React.FC = () => {
         }
       );
 
-      // 제목 요약 트리거
       const finalHistory = [...latestHistory, { id: modelMessageId, role: Role.MODEL, content: modelResponse, timestamp: Date.now() }];
       if (finalHistory.length >= 2 && finalHistory.length <= 6) {
         triggerAutoTitle(currentSessionId, finalHistory);
@@ -225,7 +253,6 @@ const App: React.FC = () => {
               ))}
             </div>
             
-            {/* 인터랙티브 점 애니메이션 복구 */}
             {isTyping && currentSession?.messages.length > 0 && currentSession.messages[currentSession.messages.length - 1].role === Role.USER && (
               <div className="flex items-start gap-4 mt-4 pl-1">
                 <div className="flex-shrink-0 mt-1">
@@ -240,6 +267,17 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* 에러 상태 표시 */}
+            {loadingStatus && (
+              <div className="mt-4 p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center gap-2 font-bold mb-1">
+                  <i className="fa-solid fa-circle-exclamation"></i>
+                  <span>{language === 'ko' ? '오류 발생' : 'Error Occurred'}</span>
+                </div>
+                {loadingStatus}
+              </div>
+            )}
             
             <div ref={messagesEndRef} className="h-4 sm:h-10" />
           </div>
@@ -249,7 +287,7 @@ const App: React.FC = () => {
           <ChatInput onSend={handleSendMessage} disabled={isTyping} language={language} />
           <div className="mt-1 text-center">
             <p className="text-[8px] sm:text-[11px] text-slate-400 dark:text-slate-500 px-4 opacity-70">
-              Gemini는 실수할 수 있습니다.
+              Gemini는 실수할 수 있습니다. (PDF 분석 최대 4MB)
             </p>
           </div>
         </footer>

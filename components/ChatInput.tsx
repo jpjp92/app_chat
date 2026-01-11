@@ -8,6 +8,8 @@ interface ChatInputProps {
   language?: Language;
 }
 
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB 제한
+
 const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko' }) => {
   const [input, setInput] = useState('');
   const [selectedAttachment, setSelectedAttachment] = useState<MessageAttachment | null>(null);
@@ -90,6 +92,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 4MB 초과 체크
+      if (file.size > MAX_FILE_SIZE) {
+        const currentSize = (file.size / (1024 * 1024)).toFixed(2);
+        alert(language === 'ko' 
+          ? `파일 크기가 너무 큽니다. 최대 4MB까지만 업로드 가능합니다.\n(현재 파일: ${currentSize}MB)` 
+          : `File is too large. Max 4MB allowed.\n(Current: ${currentSize}MB)`);
+        e.target.value = ''; // 선택 초기화
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedAttachment({ 
@@ -99,7 +111,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
         });
       };
       reader.readAsDataURL(file);
-      // 같은 파일을 다시 올릴 수 있도록 초기화
       e.target.value = '';
     }
   };
@@ -150,7 +161,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, language = 'ko'
           type="button" 
           onClick={() => fileInputRef.current?.click()} 
           className="flex-shrink-0 w-8 h-8 sm:w-11 sm:h-11 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/5 rounded-full transition-colors"
-          title="이미지 또는 파일 첨부"
+          title="이미지 또는 PDF 첨부 (최대 4MB)"
         >
           <i className="fa-solid fa-paperclip text-sm sm:text-lg"></i>
         </button>
